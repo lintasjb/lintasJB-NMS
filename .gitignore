@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# runtime data (database, upload, secrets)
+data/*
+!data/.gitkeep
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# logs & test artifacts
+*.log
+server.log
+server.err.log
+login.json
+login-body.json
+bootstrap.json
+test-import.kml
+*.tmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

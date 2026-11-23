@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#060b14" />
+  <meta name="description" content="lintasJB NMS — FTTH Network Mapping, Monitoring & Fiber Fault Locator dengan GenieACS, HiOSO OLT, dan MikroTik RouterOS." />
+  <title>lintasJB NMS — Fiber Network Intelligence</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <!-- ===================== SVG SPRITE ===================== -->
+  <svg xmlns="http://www.w3.org/2000/svg" class="svg-sprite" aria-hidden="true">
+    <symbol id="i-logo" viewBox="0 0 32 32"><path d="M7 25c0-7 4-11 11-11h7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M7 18c0-4.5 2.5-7 7-7h4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" opacity=".6"/><circle cx="7" cy="25" r="2.6" fill="currentColor"/><circle cx="25" cy="14" r="2.6" fill="currentColor"/><circle cx="18" cy="11" r="1.7" fill="currentColor" opacity=".7"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></symbol>
+    <symbol id="i-network" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5V13M12 13 6.5 17M12 13l5.5 4"/></symbol>
+    <symbol id="i-cable" viewBox="0 0 24 24"><path d="M4 8V5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v3"/><rect x="3" y="8" width="8" height="5" rx="1.5"/><path d="M7 13v3a4 4 0 0 0 4 4h2a4 4 0 0 0 4-4v-3"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><path d="M16 4V2M19 4V2"/></symbol>
+    <symbol id="i-router" viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="8" rx="2"/><path d="M7 17h.01M11 17h.01"/><path d="m12 13-4-8M12 13l4-8"/><path d="M8 5h.01M16 5h.01"/></symbol>
+    <symbol id="i-alert-triangle" viewBox="0 0 24 24"><path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 3 3 7l4 4M3 7h13a4 4 0 0 1 4 4v1M17 21l4-4-4-4M21 17H8a4 4 0 0 1-4-4v-1"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></symbol>
+    <symbol id="i-volume-x" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m22 9-6 6M16 9l6 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.5"/></symbol>
+    <symbol id="i-navigation" viewBox="0 0 24 24"><path d="m3 11 19-9-9 19-2-8-8-2Z"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18h1.5a2 2 0 0 0 0-4H12a1.5 1.5 0 0 1 0-3h5.5A3.5 3.5 0 0 0 21 10.5C21 6.4 17 3 12 3Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="9.5" cy="6.5" r="1"/><circle cx="14" cy="6.5" r="1"/><circle cx="17" cy="9.5" r="1"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3Z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 15v2"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8.5a16 16 0 0 1 20 0M5 12.5a11 11 0 0 1 14 0M8.5 16a6 6 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M11 6.5h4M11 17.5h4"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 21v-4h6v4M8 7h.01M12 7h.01M16 7h.01M8 11h.01M12 11h.01M16 11h.01"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5M12 12v10"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-8 9 8v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10Z"/><path d="M9 22V12h6v10"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8V4Z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 4h18l-7 8v7l-4 2v-9L3 4Z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M7 3v6h8V3M7 21v-7h10v7"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 4 5.6 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.6-4-9s1.5-6.5 4-9Z"/></symbol>
+    <symbol id="i-ruler" viewBox="0 0 24 24"><path d="m3 15 12-12 6 6L9 21l-6-6Z"/><path d="m7 11 2 2M10 8l2 2M13 5l2 2M4 14l2 2"/></symbol>
+    <symbol id="i-git-branch" viewBox="0 0 24 24"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+    <symbol id="i-alert-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 10-10M17 6l3 3M14 9l3 3"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></symbol>
+    <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6 2h3l2 5-2.5 1.5a14 14 0 0 0 6 6L16 12l5 2v3a2 2 0 0 1-2 2A17 17 0 0 1 4 4a2 2 0 0 1 2-2Z"/></symbol>
+    <symbol id="i-qris" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14h1v1h-1zM14 20h1v1h-1zM17 17h1v1h-1zM19 19h2v2h-2z"/></symbol>
+    <symbol id="i-credit-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 9h18M16 13h2"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9Z"/><path d="M3 9l2-5h14l2 5M9 20v-6h6v6"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M5 3h14v18l-2-2-2 2-2-2-2 2-2-2-2 2V3Z"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3 1.8 4.7L18 9.5l-4.2 1.8L12 16l-1.8-4.7L6 9.5l4.2-1.8L12 3Z"/><path d="M18.5 15.5 19.4 18l2.1.9-2.1.9-.9 2.2-.9-2.2-2.1-.9 2.1-.9.9-2.5Z"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4h6a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H4V4Z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H20V4Z"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M13 4l-2 16"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+    <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M5 15c-1 2-1 5-1 5s3 0 5-1M9 15l-3-3c3-6 8-9 14-9 0 6-3 11-9 14l-2-2Z"/><circle cx="15" cy="9" r="1.5"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2Z"/><path d="M12 9v5M12 17h.01"/></symbol>
+  </svg>
+
+  <!-- ===================== AUTH ===================== -->
+  <section id="auth-screen" class="auth">
+    <div class="auth-visual">
+      <div class="auth-glow auth-glow--1"></div>
+      <div class="auth-glow auth-glow--2"></div>
+      <div class="fiber-lines" aria-hidden="true">
+        <svg viewBox="0 0 900 900" preserveAspectRatio="none">
+          <path class="fiber-line f1" d="M-50 680 C 180 560 260 760 480 620 S 760 430 960 520"/>
+          <path class="fiber-line f2" d="M-50 740 C 200 640 300 820 520 680 S 780 520 960 590"/>
+          <path class="fiber-line f3" d="M-50 610 C 220 500 330 700 540 560 S 790 370 960 450"/>
+          <circle class="fiber-dot d1" r="4"/><circle class="fiber-dot d2" r="3"/><circle class="fiber-dot d3" r="3.5"/>
+        </svg>
+      </div>
+      <div class="auth-brand">
+        <img data-logo src="/assets/logo.svg" alt="lintasJB" />
+        <div>
+          <div class="auth-brand__name" data-app-name>lintasJB <span>NMS</span></div>
+          <div class="auth-brand__tag" data-brand-tagline>Fiber Network Intelligence</div>
+        </div>
+      </div>
+      <div class="auth-copy">
+        <span class="eyebrow"><span class="pulse-dot"></span> Network Operations Center</span>
+        <h1>Satu peta untuk seluruh<br /><em>jaringan fiber</em> Anda.</h1>
+        <p>Monitoring FTTH real-time, fault locator presisi, integrasi GenieACS, OLT HiOSO, dan MikroTik RouterOS dalam satu platform.</p>
+        <ul class="auth-features">
+          <li><span class="af-ico"><svg class="icon"><use href="#i-route"/></svg></span><div><b>Peta topologi hidup</b><small>Backbone, feeder, distribusi, drop — dengan animasi kabel.</small></div></li>
+          <li><span class="af-ico"><svg class="icon"><use href="#i-crosshair"/></svg></span><div><b>POSGIS fault locator</b><small>Deteksi titik putus dari jarak OTDR hingga koordinat presisi.</small></div></li>
+          <li><span class="af-ico"><svg class="icon"><use href="#i-radio"/></svg></span><div><b>Multi-vendor, satu NOC</b><small>GenieACS NBI, HiOSO EPON/GPON, RouterOS REST API.</small></div></li>
+        </ul>
+      </div>
+      <div class="auth-metrics">
+        <div><b>99,98%</b><span>Network uptime</span></div>
+        <div><b>&lt; 60s</b><span>Fault detection</span></div>
+        <div><b>Multi-vendor</b><span>OLT &amp; router</span></div>
+      </div>
+      <div class="auth-credit">© 2026 lintasJB · Build 1.0.0</div>
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-card">
+        <div class="auth-card__head">
+          <div class="auth-logo-mobile"><img data-logo src="/assets/logo.svg" alt="lintasJB" /><span data-app-name>lintasJB NMS</span></div>
+          <h2 id="auth-title">Selamat datang kembali</h2>
+          <p id="auth-subtitle">Masuk ke workspace NOC Anda.</p>
+        </div>
+        <div class="auth-tabs" role="tablist">
+          <button class="auth-tab active" data-auth-tab="login" role="tab">Masuk</button>
+          <button class="auth-tab" data-auth-tab="register" role="tab">Daftar</button>
+        </div>
+
+        <form id="login-form" class="auth-form" autocomplete="on">
+          <label class="field">
+            <span>Email atau username</span>
+            <div class="input-wrap"><svg class="icon"><use href="#i-user"/></svg><input name="email" type="text" placeholder="admin@lintasjb.id" autocomplete="username" required /></div>
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <div class="input-wrap"><svg class="icon"><use href="#i-lock"/></svg><input name="password" type="password" placeholder="••••••••" autocomplete="current-password" required /><button type="button" class="input-action" data-toggle-password aria-label="Tampilkan password"><svg class="icon"><use href="#i-eye"/></svg></button></div>
+          </label>
+          <div class="auth-row">
+            <label class="check"><input type="checkbox" name="remember" checked /><span>Ingat saya</span></label>
+            <button type="button" class="link-btn" data-demo-fill>Isi akun demo</button>
+          </div>
+          <div class="auth-error hidden" data-auth-error></div>
+          <button class="btn btn-primary btn-lg btn-block" type="submit"><span>Masuk ke NOC</span><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+          <div class="demo-hint">
+            <div class="demo-hint__icon"><svg class="icon"><use href="#i-zap"/></svg></div>
+            <div><b>Demo environment</b><span>admin@lintasjb.id · Admin123!</span></div>
+            <button type="button" class="btn btn-xs btn-soft" data-demo-login>Login demo</button>
+          </div>
+        </form>
+
+        <form id="register-form" class="auth-form hidden" autocomplete="on">
+          <div class="grid-2">
+            <label class="field"><span>Nama lengkap</span><div class="input-wrap"><svg class="icon"><use href="#i-user"/></svg><input name="name" placeholder="Nama Anda" required /></div></label>
+            <label class="field"><span>Perusahaan</span><div class="input-wrap"><svg class="icon"><use href="#i-building"/></svg><input name="company" placeholder="PT Perusahaan Anda" /></div></label>
+          </div>
+          <label class="field"><span>Email</span><div class="input-wrap"><svg class="icon"><use href="#i-bell"/></svg><input name="email" type="email" placeholder="nama@perusahaan.id" required /></div></label>
+          <label class="field"><span>Password</span><div class="input-wrap"><svg class="icon"><use href="#i-lock"/></svg><input name="password" type="password" placeholder="Min. 8 karakter, huruf + angka" required /><button type="button" class="input-action" data-toggle-password aria-label="Tampilkan password"><svg class="icon"><use href="#i-eye"/></svg></button></div></label>
+          <label class="check"><input type="checkbox" name="demo" checked /><span>Sertakan data demo Jember–Banyuwangi</span></label>
+          <div class="auth-error hidden" data-auth-error></div>
+          <button class="btn btn-primary btn-lg btn-block" type="submit"><span>Buat akun</span><svg class="icon"><use href="#i-arrow-right"/></svg></button>
+          <p class="auth-legal">Dengan mendaftar, Anda menyetujui penggunaan lisensi trial 30 hari. Data tersimpan di server Anda sendiri.</p>
+        </form>
+
+        <div class="auth-card__foot">
+          <span><svg class="icon"><use href="#i-shield"/></svg> Self-hosted</span>
+          <span><svg class="icon"><use href="#i-database"/></svg> Data lokal</span>
+          <span><svg class="icon"><use href="#i-activity"/></svg> Realtime SSE</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== APP SHELL ===================== -->
+  <div id="app" class="app hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <a href="#" class="brand" data-nav="dashboard">
+          <img data-logo src="/assets/logo.svg" alt="lintasJB" />
+          <span class="brand-text"><b data-company>lintasJB</b><small data-app-name>lintasJB NMS</small></span>
+        </a>
+        <button class="icon-btn sidebar-collapse" id="sidebar-collapse" title="Collapse sidebar"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+      </div>
+      <div class="sidebar-project">
+        <span class="sp-label">PROJECT AKTIF</span>
+        <div class="sp-name" data-project-name>—</div>
+        <div class="sp-meta"><span data-project-nodes>0 node</span><span class="dot-sep"></span><span data-project-km>0 km</span></div>
+      </div>
+      <nav class="nav">
+        <span class="nav-label">Operasional</span>
+        <a class="nav-item" data-nav="dashboard"><svg class="icon"><use href="#i-grid"/></svg><span>Dashboard</span></a>
+        <a class="nav-item" data-nav="map"><svg class="icon"><use href="#i-map"/></svg><span>Live Map</span><span class="nav-live"><i></i>LIVE</span></a>
+        <a class="nav-item" data-nav="assets"><svg class="icon"><use href="#i-network"/></svg><span>Aset Jaringan</span><span class="nav-count" data-count-nodes>0</span></a>
+        <a class="nav-item" data-nav="cables"><svg class="icon"><use href="#i-cable"/></svg><span>Kabel &amp; Rute</span><span class="nav-count" data-count-cables>0</span></a>
+        <a class="nav-item" data-nav="faults"><svg class="icon"><use href="#i-alert-triangle"/></svg><span>Fault Locator</span><span class="nav-alert hidden" data-count-faults>0</span></a>
+        <span class="nav-label">Platform</span>
+        <a class="nav-item" data-nav="devices"><svg class="icon"><use href="#i-router"/></svg><span>Perangkat</span></a>
+        <a class="nav-item" data-nav="transfer"><svg class="icon"><use href="#i-swap"/></svg><span>Import / Export</span></a>
+        <a class="nav-item" data-nav="settings"><svg class="icon"><use href="#i-settings"/></svg><span>Pengaturan</span></a>
+        <a class="nav-item" data-nav="about"><svg class="icon"><use href="#i-info"/></svg><span>Tentang</span></a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="license-mini" id="license-mini">
+          <div class="lm-head"><span><svg class="icon"><use href="#i-key"/></svg> Lisensi</span><span class="pill" data-license-plan>TRIAL</span></div>
+          <div class="lm-bar"><i data-license-bar style="width:0%"></i></div>
+          <div class="lm-foot"><span data-license-days>— hari tersisa</span><button class="link-btn" data-nav="settings" data-settings-tab="license">Kelola</button></div>
+        </div>
+        <div class="sidebar-user">
+          <div class="avatar" data-user-initials>AD</div>
+          <div class="su-info"><b data-user-name>Administrator</b><span data-user-role>Superadmin</span></div>
+          <button class="icon-btn" data-user-menu aria-label="Menu pengguna"><svg class="icon"><use href="#i-more"/></svg></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="shell">
+      <header class="topbar">
+        <button class="icon-btn mobile-menu" id="mobile-menu" aria-label="Menu"><svg class="icon"><use href="#i-menu"/></svg></button>
+        <div class="page-heading">
+          <h1 id="page-title">Dashboard</h1>
+          <p id="page-subtitle">Ringkasan kondisi jaringan</p>
+        </div>
+        <div class="topbar-actions">
+          <label class="project-select">
+            <span class="ps-ico"><svg class="icon"><use href="#i-git-branch"/></svg></span>
+            <select id="project-select" aria-label="Pilih project"></select>
+            <svg class="icon ps-chev"><use href="#i-chevron-down"/></svg>
+          </label>
+          <button class="icon-btn topbar-search" id="btn-search" title="Cari node / kabel (Ctrl+K)"><svg class="icon"><use href="#i-search"/></svg><span class="kbd">Ctrl K</span></button>
+          <button class="icon-btn" id="btn-sound" title="Suara alarm"><svg class="icon"><use href="#i-volume"/></svg></button>
+          <button class="icon-btn alarm-bell" id="btn-alarms" title="Alarm aktif"><svg class="icon"><use href="#i-bell"/></svg><span class="alarm-badge hidden" data-alarm-badge>0</span></button>
+          <div class="topbar-divider"></div>
+          <button class="user-chip" data-user-menu>
+            <span class="avatar" data-user-initials>AD</span>
+            <span class="uc-text"><b data-user-name>Administrator</b><small data-user-role>Superadmin</small></span>
+            <svg class="icon"><use href="#i-chevron-down"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div id="alert-strip" class="alert-strip hidden"></div>
+      <main id="view" class="view"></main>
+    </div>
+  </div>
+
+  <!-- ===================== OVERLAYS ===================== -->
+  <div id="modal-root"></div>
+  <div id="drawer-root"></div>
+  <div id="toast-root" class="toast-root"></div>
+  <div id="fault-overlay" class="fault-overlay hidden"></div>
+  <div id="boot-screen" class="boot-screen hidden">
+    <div class="boot-logo"><img src="/assets/logo.svg" alt="lintasJB" /></div>
+    <div class="boot-spinner"></div>
+    <p>Menyiapkan NOC…</p>
+  </div>
+
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
