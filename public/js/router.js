@@ -34,9 +34,9 @@ export function navigate(view, params = {}) {
   else location.hash = next;
 }
 
-export function setFocus(kind, id) {
+export function setFocus(kind, id, extra = {}) {
   try {
-    sessionStorage.setItem('lintasjb.focus', JSON.stringify({ kind, id, at: Date.now() }));
+    sessionStorage.setItem('lintasjb.focus', JSON.stringify({ kind, id, ...extra, at: Date.now() }));
   } catch { /* ignore */ }
 }
 

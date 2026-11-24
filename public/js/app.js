@@ -9,6 +9,7 @@ import {
 } from './ui.js';
 import { ROUTES, parseHash, currentView, navigate, setFocus } from './router.js';
 import { runCleanup } from './lifecycle.js';
+import { parseCoordinate } from './geosearch.js';
 import * as sound from './sound.js';
 
 const PAGE_LOADERS = {
@@ -561,7 +562,7 @@ function openPalette() {
   back.className = 'modal-backdrop';
   back.style.alignItems = 'flex-start';
   back.innerHTML = `<div class="palette" role="dialog" aria-modal="true" aria-label="Pencarian global">
-    <div class="palette-input">${icon('search')}<input id="palette-query" placeholder="Cari node, kabel, gangguan, atau halaman…" autocomplete="off" /></div>
+    <div class="palette-input">${icon('search')}<input id="palette-query" placeholder="Cari node, kabel, koordinat, atau halaman…" autocomplete="off" /></div>
     <div class="palette-results" id="palette-results"></div>
     <div class="palette-foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigasi</span><span><kbd>Enter</kbd> buka</span><span><kbd>Esc</kbd> tutup</span><span class="grow"></span><span>Ctrl K</span></div>
   </div>`;
@@ -579,7 +580,21 @@ function openPalette() {
 
   const render = () => {
     const q = input.value.trim().toLowerCase();
-    visible = all.filter((item) => !q || `${item.label} ${item.sub} ${item.group}`.toLowerCase().includes(q)).slice(0, 24);
+    const coord = q ? parseCoordinate(q) : null;
+    const coordItem = coord ? {
+      kind: 'coordinate',
+      id: `${coord.lat},${coord.lng}`,
+      group: 'Koordinat',
+      label: `Buka koordinat ${fmt.coord(coord.lat, coord.lng, 6)}`,
+      sub: 'WGS84 · buka di Live Map',
+      icon: 'crosshair',
+      color: '#f5a524',
+      point: [coord.lat, coord.lng],
+    } : null;
+    visible = [
+      ...(coordItem ? [coordItem] : []),
+      ...all.filter((item) => !q || `${item.label} ${item.sub} ${item.group}`.toLowerCase().includes(q)),
+    ].slice(0, 24);
     if (!visible.length) {
       results.innerHTML = empty('search', 'Tidak ada hasil', 'Coba kata kunci lain.');
       return;
@@ -608,6 +623,7 @@ function openPalette() {
     if (item.kind === 'page') navigate(item.id);
     else if (item.kind === 'node') { setFocus('node', item.id); navigate('map'); }
     else if (item.kind === 'cable') { setFocus('cable', item.id); navigate('map'); }
+    else if (item.kind === 'coordinate') { setFocus('point', item.id, { point: item.point }); navigate('map'); }
     else if (item.kind === 'fault') navigate('faults', { faultId: item.id });
   };
 

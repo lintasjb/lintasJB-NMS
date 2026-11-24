@@ -72,12 +72,14 @@ export function createMap(container, options = {}) {
     faults: L.layerGroup().addTo(map),
     user: L.layerGroup().addTo(map),
     draw: L.layerGroup().addTo(map),
+    search: L.layerGroup().addTo(map),
   };
 
   let drawState = null;
   let pickState = null;
   let userMarker = null;
   let accuracyCircle = null;
+  let searchMarker = null;
 
   function applyContainerClasses() {
     container.classList.toggle('no-labels', !state.filters.labels);
@@ -384,6 +386,39 @@ export function createMap(container, options = {}) {
     userMarker.bindTooltip('Lokasi Anda', { direction: 'top', offset: [0, -14] });
   }
 
+  function showSearchPin(point, label = 'Titik koordinat') {
+    if (searchMarker) layers.search.removeLayer(searchMarker);
+    const html = `<div class="search-location"><div class="sl-ring"></div><div class="sl-dot"></div></div>`;
+    searchMarker = L.marker(point, {
+      icon: L.divIcon({ className: 'search-pin-wrap', html, iconSize: [0, 0], iconAnchor: [0, 0] }),
+      zIndexOffset: 2400,
+    }).addTo(layers.search);
+    searchMarker.bindPopup(
+      `<div style="min-width:180px">
+        <div class="row" style="gap:7px"><span style="color:var(--warn)">${icon('crosshair')}</span><b>${esc(label)}</b></div>
+        <div class="mono" style="font-size:10px;color:#8ba0bd;margin-top:6px">${fmt.coord(point[0], point[1], 7)}</div>
+        <div style="font-size:9.5px;color:#8ba0bd;margin-top:4px">WGS84 · gunakan tombol ambil koordinat untuk titik baru</div>
+      </div>`,
+      { maxWidth: 260 }
+    );
+    searchMarker.bindTooltip(`${icon('pin')} ${esc(label)}`, { direction: 'top', offset: [0, -12] });
+    return searchMarker;
+  }
+
+  function flyToPoint(point, { zoom = 17, label = 'Titik koordinat' } = {}) {
+    if (!Array.isArray(point) || point.length < 2) return;
+    const ll = [Number(point[0]), Number(point[1])];
+    if (!ll.every(Number.isFinite)) return;
+    map.flyTo(ll, zoom, { duration: 0.8 });
+    showSearchPin(ll, label);
+    setTimeout(() => { if (!destroyed) searchMarker?.openPopup?.(); }, 850);
+  }
+
+  function clearSearchPin() {
+    if (searchMarker) layers.search.removeLayer(searchMarker);
+    searchMarker = null;
+  }
+
   function setPickMode(kind, { onPick, onCancel, onChange } = {}) {
     cancelPick();
     pickState = { kind, onPick, onCancel, onChange };
@@ -557,6 +592,9 @@ export function createMap(container, options = {}) {
     flyToNode,
     focusCable,
     focusFault,
+    flyToPoint,
+    showSearchPin,
+    clearSearchPin,
     locate,
     showUserLocation,
     startPickMode: setPickMode,

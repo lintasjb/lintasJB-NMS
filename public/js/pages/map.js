@@ -10,6 +10,7 @@ import { openNodeModal, openCableModal, openNodeDrawer, openCableDrawer, request
 import { takeFocus } from '../router.js';
 import { registerCleanup } from '../lifecycle.js';
 import { pointAtDistance, pathLength } from '../geo.js';
+import { parseCoordinate, searchObjects } from '../geosearch.js';
 
 const BASEMAP_GROUPS = ['Gelap', 'Terang', 'Standar', 'Satelit', 'Topografi', 'Kustom', 'Lainnya'];
 
@@ -33,6 +34,16 @@ export async function render(view) {
         <div class="map-hud__stat"><i style="background:var(--danger)"></i> Fault <b>${state.faults.filter((x) => x.status === 'active').length}</b></div>
         <div class="map-hud__stat"><i style="background:var(--accent)"></i> Zoom <b id="zoom-label">${state.settings.map?.zoom || 10}</b></div>
       </div>
+    </div>
+
+    <div class="map-search" id="map-search">
+      <div class="ms-input">
+        ${icon('search')}
+        <input id="map-search-input" type="text" placeholder="Cari nama objek atau tempel koordinat…" autocomplete="off" spellcheck="false" aria-label="Cari objek atau koordinat" />
+        <button class="ms-icon" data-search-clear title="Hapus pencarian" aria-label="Hapus pencarian">${icon('x')}</button>
+        <button class="ms-icon" data-search-paste title="Tempel koordinat dari clipboard" aria-label="Tempel koordinat">${icon('copy')}</button>
+      </div>
+      <div class="ms-results" id="map-search-results"></div>
     </div>
 
     <div class="map-toolbar" id="map-toolbar">
@@ -250,9 +261,133 @@ export async function render(view) {
     setTimeout(() => ctl.focusCable(focus.id), 180);
   } else if (focus?.kind === 'fault') {
     setTimeout(() => ctl.focusFault(focus.id), 180);
+  } else if (focus?.kind === 'point' && Array.isArray(focus.point)) {
+    setTimeout(() => ctl.flyToPoint(focus.point, { label: 'Titik yang dicari' }), 180);
   } else if (state.nodes.length) {
     ctl.fit({ padding: [50, 50], animate: false });
   }
+
+  /* ---------------------------------------------------------------- search */
+  const searchBox = view.querySelector('#map-search');
+  const searchInput = view.querySelector('#map-search-input');
+  const searchResults = view.querySelector('#map-search-results');
+  let searchRows = [];
+  let searchIndex = 0;
+
+  const closeSearchResults = () => { searchResults.innerHTML = ''; searchRows = []; };
+
+  const renderSearch = () => {
+    const q = searchInput.value.trim();
+    if (!q) { closeSearchResults(); return; }
+    const coord = parseCoordinate(q);
+    searchRows = [];
+    if (coord) {
+      searchRows.push({
+        kind: 'coordinate',
+        label: `Koordinat · ${fmt.coord(coord.lat, coord.lng, 6)}`,
+        sub: `Buka di peta · WGS84 · ${coord.source}`,
+        icon: 'crosshair',
+        color: 'var(--warn)',
+        point: [coord.lat, coord.lng],
+      });
+    }
+    searchRows.push(...searchObjects(q, {
+      nodes: state.nodes,
+      cables: state.cables,
+      faults: state.faults.filter((f) => f.status === 'active'),
+      meta: { node: (type) => NODE_TYPES[type] || {}, cable: (type) => CABLE_TYPES[type] || {} },
+      limit: coord ? 8 : 12,
+    }));
+    if (!searchRows.length) {
+      searchResults.innerHTML = `<div class="ms-empty">${icon('search')}<span>Tidak ada hasil. Coba nama node/kabel atau koordinat seperti <b>-8.1694, 113.7012</b>.</span></div>`;
+      return;
+    }
+    searchIndex = Math.min(searchIndex, searchRows.length - 1);
+    searchResults.innerHTML = searchRows.map((row, i) => `
+      <button class="ms-result ${i === searchIndex ? 'active' : ''}" data-ms-index="${i}">
+        <span class="cell-icon" style="color:${esc(row.color)}">${icon(row.icon || 'pin')}</span>
+        <span class="grow"><b>${esc(row.label)}</b><span>${esc(row.sub || '')}</span></span>
+        <span class="ms-kind">${esc(row.kind)}</span>
+      </button>`).join('');
+    searchResults.querySelector(`[data-ms-index="${searchIndex}"]`)?.scrollIntoView({ block: 'nearest' });
+  };
+
+  const chooseSearch = (i = searchIndex) => {
+    const row = searchRows[i];
+    if (!row) return;
+    if (row.kind === 'coordinate') {
+      ctl.flyToPoint(row.point, { label: 'Titik yang dicari' });
+      toast.info('Koordinat ditemukan', `${fmt.coord(row.point[0], row.point[1], 6)} · WGS84.`);
+    } else if (row.kind === 'node') {
+      ctl.flyToNode(row.id);
+    } else if (row.kind === 'cable') {
+      ctl.focusCable(row.id);
+    } else if (row.kind === 'fault') {
+      ctl.focusFault(row.id);
+    }
+    closeSearchResults();
+  };
+
+  searchInput.addEventListener('focus', () => {
+    if (ctl.isPicking() || ctl.isDrawing()) {
+      ctl.cancelPick({ silent: true });
+      ctl.cancelDrawCable({ silent: true });
+      toolbar.querySelector('[data-action="draw"]')?.classList.remove('active');
+      clearDrawbar();
+    }
+    if (searchInput.value.trim()) renderSearch();
+  });
+  searchInput.addEventListener('input', () => { searchIndex = 0; renderSearch(); });
+  searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (!searchRows.length) return;
+      event.preventDefault();
+      searchIndex = event.key === 'ArrowDown'
+        ? Math.min(searchRows.length - 1, searchIndex + 1)
+        : Math.max(0, searchIndex - 1);
+      renderSearch();
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      chooseSearch();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      closeSearchResults();
+      searchInput.blur();
+    }
+  });
+
+  searchResults.addEventListener('click', (event) => {
+    const row = event.target.closest('[data-ms-index]');
+    if (row) chooseSearch(Number(row.dataset.msIndex));
+  });
+
+  searchBox.querySelector('[data-search-clear]')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    searchInput.value = '';
+    closeSearchResults();
+    ctl.clearSearchPin();
+    searchInput.focus();
+  });
+
+  searchBox.querySelector('[data-search-paste]')?.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) { toast.warn('Clipboard kosong', 'Salin koordinat terlebih dahulu.'); return; }
+      searchInput.value = text.trim();
+      searchIndex = 0;
+      renderSearch();
+      searchInput.focus();
+    } catch {
+      toast.warn('Clipboard tidak dapat dibaca', 'Browser memblokir akses clipboard. Tekan Ctrl+V di kolom pencarian.');
+      searchInput.focus();
+    }
+  });
+
+  const closeSearchOutside = (event) => {
+    if (!searchBox.contains(event.target)) closeSearchResults();
+  };
+  document.addEventListener('click', closeSearchOutside);
 
   view.addEventListener('click', async (event) => {
     const menuBtn = event.target.closest('[data-menu]');
@@ -374,6 +509,7 @@ export async function render(view) {
 
   registerCleanup(() => {
     document.removeEventListener('click', hideMenu);
+    document.removeEventListener('click', closeSearchOutside);
     ctl?.destroy();
   });
 }
