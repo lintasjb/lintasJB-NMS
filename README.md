@@ -173,6 +173,11 @@ token di halaman Monitor.
 ### OLT HiOSO / multi-vendor
 - **Mode simulasi** aktif secara default untuk demo tanpa perangkat fisik (tidak dihapus).
 - **HTTP web UI**: isi host/port, kredensial, dan path endpoint ONU sesuai firmware.
+  Untuk **HiOSO HA7304/FHA7104 (GoAhead EPON)** gunakan port manajemen web
+  (umumnya **8180**), biarkan **Login path** kosong untuk HTTP Basic auth, dan isi
+  **ONU list path** `/onuAllPonOnuList.asp`. Halaman ini menyematkan seluruh daftar ONU
+  sebagai array JavaScript; adapter mem-parsing id/port, nama, MAC, status, Tx/Rx, suhu,
+  dan jarak tanpa perlu login form.
 - **SNMP**: isi community, port 161, dan OID bila tersedia. Adapter mencoba SNMP sebelum fallback.
 - **SSH (remote CLI)**: pilih protokol **SSH**, port default 22, lalu isi username/password
   atau private key (disimpan terenkripsi). Sesuaikan **Perintah tes** dan **Perintah ONU**
@@ -292,11 +297,11 @@ lintasjb-nms/
 | `POST` | `/api/alarms/:id/ack` | Acknowledge alarm |
 | `GET` | `/api/io/export?format=kml` | Export project |
 | `POST` | `/api/io/import` | Import multipart (`file`, `dryRun`) |
-| `POST` | `/api/integrations/olts/:id/test` | Tes OLT |
-| `POST` | `/api/integrations/olts/test-connection` | Tes OLT dari form (sebelum simpan) |
-| `POST` | `/api/integrations/olts/:id/exec` | Remote perintah CLI via SSH |
-| `POST` | `/api/integrations/routers/test-connection` | Tes koneksi router dari form (sebelum simpan) |
-| `POST` | `/api/integrations/routers/:id/test` | Tes RouterOS |
+| `POST` | `/api/olts/:id/test` | Tes OLT |
+| `POST` | `/api/olts/test-connection` | Tes OLT dari form (sebelum simpan) |
+| `POST` | `/api/olts/:id/exec` | Remote perintah CLI via SSH |
+| `POST` | `/api/routers/test-connection` | Tes koneksi router dari form (sebelum simpan) |
+| `POST` | `/api/routers/:id/test` | Tes RouterOS |
 | `GET` | `/api/about` | Info aplikasi, runtime, statistik, lisensi |
 | `GET` | `/api/billing/config` | Metode bayar, harga, riwayat tagihan |
 | `POST` | `/api/billing/orders` | Buat tagihan lisensi (harga kustom) |
@@ -319,7 +324,7 @@ Semua endpoint selain health/login/register memerlukan header `Authorization: Be
 | Peta kosong | Periksa koneksi tile internet atau pilih basemap **Kanvas Kosong** untuk mode offline. |
 | GenieACS `ECONNREFUSED` | NBI belum berjalan di port 7557 atau URL salah. |
 | MikroTik TLS error | Aktifkan *allow self-signed* atau pasang sertifikat yang dipercaya. |
-| OLT tidak terbaca | Cek mode (simulasi/HTTP/SNMP), kredensial, dan akses port 80/161. |
+| OLT tidak terbaca | Cek mode (simulasi/HTTP/SNMP), kredensial, dan akses port 80/8180/161. |
 | File import ditolak | Pastikan ekstensi KML/KMZ/GeoJSON/CSV, ukuran < 25 MB, koordinat WGS84. |
 | Data hilang setelah restart | Pastikan `DATA_DIR` konsisten dan folder `data/` dapat ditulis. |
 

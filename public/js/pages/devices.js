@@ -40,6 +40,17 @@ const SSH_PRESETS = {
 
 const OLT_DEFAULT_PORT = { http: 80, rest: 443, snmp: 161, ssh: 22, cli: 22 };
 
+// HiOSO HA7304/FHA7104 (GoAhead EPON) serves its web UI on port 8180 with HTTP
+// Basic auth and embeds the ONU list in /onuAllPonOnuList.asp.
+const OLT_WEB_PATHS = {
+  hioso: { loginPath: '', onuPath: '/onuAllPonOnuList.asp' },
+  generic: { loginPath: '/login.cgi', onuPath: '/cgi-bin/onu_list.cgi' },
+};
+
+function webPathsFor(vendor) {
+  return OLT_WEB_PATHS[vendor] || OLT_WEB_PATHS.generic;
+}
+
 
 function statusLine(ok, label, extra = '') {
   const cls = ok === true ? 'dot--ok' : ok === false ? 'dot--err' : 'dot--idle';
@@ -60,6 +71,7 @@ function openOltModal({ olt = null } = {}) {
   const siteOptions = state.nodes.filter((n) => ['olt', 'pop', 'router'].includes(n.type));
   const protocol = olt?.protocol || 'http';
   const preset = SSH_PRESETS[vendor] || SSH_PRESETS.generic;
+  const paths = webPathsFor(vendor);
   const protoPage = (values) => (values.includes(protocol) ? '' : ' hidden');
   modal({
     title: editing ? `Edit OLT: ${olt.name}` : 'Tambah OLT',
@@ -97,8 +109,8 @@ function openOltModal({ olt = null } = {}) {
 
         <div data-proto="http rest"${protoPage(['http', 'rest'])}>
           <div class="grid-2 mt-2">
-            ${field('Login path', `<input name="loginPath" value="${esc(olt?.loginPath || '/login.cgi')}" />`)}
-            ${field('ONU list path', `<input name="onuPath" value="${esc(olt?.onuPath || '/cgi-bin/onu_list.cgi')}" />`)}
+            ${field('Login path', `<input name="loginPath" value="${esc(olt?.loginPath ?? paths.loginPath)}" placeholder="Kosongkan untuk HTTP Basic auth" />`)}
+            ${field('ONU list path', `<input name="onuPath" value="${esc(olt?.onuPath ?? paths.onuPath)}" />`)}
           </div>
           <div class="switch-row mt-2"><div><b>Gunakan HTTPS / TLS</b><span>Sertifikat self-signed diizinkan.</span></div><label class="switch"><input type="checkbox" name="tls" ${olt?.tls ? 'checked' : ''}/><i></i></label></div>
         </div>
@@ -147,6 +159,8 @@ function openOltModal({ olt = null } = {}) {
       const portInput = form.querySelector('[name="port"]');
       const testInput = form.querySelector('[name="sshTestCommand"]');
       const onusInput = form.querySelector('[name="sshOnuCommand"]');
+      const loginPathInput = form.querySelector('[name="loginPath"]');
+      const onuPathInput = form.querySelector('[name="onuPath"]');
       const save = root.querySelector('[data-save]');
       const test = root.querySelector('[data-test]');
       const status = root.querySelector('[data-test-status]');
@@ -165,7 +179,7 @@ function openOltModal({ olt = null } = {}) {
               ? `${icon('info')} SNMP walk memakai OID privat per firmware. Isi minimal OID status ONU, lalu lengkapi OID nama/MAC/RX bila tersedia.`
               : value === 'rest'
                 ? `${icon('info')} REST/HTTPS memakai endpoint web OLT. Aktifkan TLS untuk sertifikat self-signed.`
-                : `${icon('info')} HTTP Web UI memakai form login dan tabel ONU. Path login/ONU dapat disesuaikan per firmware.`;
+                : `${icon('info')} HTTP Web UI memakai HTTP Basic auth bila login path dikosongkan. HiOSO HA7304: port 8180, path ONU <span class="mono">/onuAllPonOnuList.asp</span>.`;
         }
       };
       applyProtocol();
@@ -176,6 +190,14 @@ function openOltModal({ olt = null } = {}) {
         const next = vendorPreset();
         if (!testInput.value.trim() || testInput.value === prev.test) testInput.value = next.test;
         if (!onusInput.value.trim() || onusInput.value === prev.onus) onusInput.value = next.onus;
+        const prevPaths = webPathsFor(previousVendor);
+        const nextPaths = webPathsFor(vendorSel.value);
+        if (!loginPathInput.value.trim() || loginPathInput.value === prevPaths.loginPath) {
+          loginPathInput.value = nextPaths.loginPath;
+        }
+        if (!onuPathInput.value.trim() || onuPathInput.value === prevPaths.onuPath) {
+          onuPathInput.value = nextPaths.onuPath;
+        }
       };
       let lastVendor = vendorSel.value;
       vendorSel.addEventListener('change', () => {

@@ -382,6 +382,10 @@ function oltFromBody(db, body, project, existing = null) {
   if (!['http', 'snmp', 'rest', 'ssh', 'cli'].includes(protocol)) throw httpError(400, 'Protokol OLT tidak valid.');
   const defaultPort = protocol === 'snmp' ? 161 : protocol === 'ssh' || protocol === 'cli' ? 22 : protocol === 'http' ? 80 : 443;
   const snmp = body.snmp && typeof body.snmp === 'object' ? body.snmp : existing?.snmp || {};
+  const pathDefaults =
+    vendor === 'hioso'
+      ? { loginPath: '', onuPath: '/onuAllPonOnuList.asp' }
+      : { loginPath: '/login.cgi', onuPath: '/cgi-bin/onu_list.cgi' };
   const olt = {
     ...(existing || {}),
     projectId: project.id,
@@ -396,8 +400,8 @@ function oltFromBody(db, body, project, existing = null) {
     username: cleanText(body.username ?? existing?.username, 100),
     simulated: body.simulated === undefined ? Boolean(existing?.simulated) : Boolean(body.simulated),
     enabled: body.enabled === undefined ? existing?.enabled !== false : Boolean(body.enabled),
-    loginPath: cleanText(body.loginPath ?? existing?.loginPath, 200) || '/login.cgi',
-    onuPath: cleanText(body.onuPath ?? existing?.onuPath, 200) || '/cgi-bin/onu_list.cgi',
+    loginPath: cleanText(body.loginPath ?? existing?.loginPath, 200) || pathDefaults.loginPath,
+    onuPath: cleanText(body.onuPath ?? existing?.onuPath, 200) || pathDefaults.onuPath,
     loginUserField: cleanText(body.loginUserField ?? existing?.loginUserField, 60) || 'username',
     loginPassField: cleanText(body.loginPassField ?? existing?.loginPassField, 60) || 'password',
     sshOnuCommand: cleanText(body.sshOnuCommand ?? existing?.sshOnuCommand, 200),
