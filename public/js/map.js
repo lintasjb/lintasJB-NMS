@@ -42,8 +42,19 @@ export function createMap(container, options = {}) {
     zoomControl: false,
     attributionControl: !opts.mini,
     preferCanvas: false,
+    minZoom: 2,
+    maxZoom: 22,
     zoomSnap: 0.25,
-    wheelPxPerZoomLevel: 90,
+    zoomDelta: 0.5,
+    wheelPxPerZoomLevel: 140,
+    wheelDebounceTime: 30,
+    inertia: true,
+    inertiaDeceleration: 3000,
+    inertiaMaxSpeed: 1400,
+    easeLinearity: 0.25,
+    zoomAnimationThreshold: 4,
+    fadeAnimation: true,
+    markerZoomAnimation: true,
     doubleClickZoom: true,
     dragging: opts.interactive,
     touchZoom: opts.interactive,
@@ -91,8 +102,10 @@ export function createMap(container, options = {}) {
 
   function setBasemap(id, { silent = false } = {}) {
     const list = state.basemaps || [];
-    const custom = (state.settings.customBasemaps || []).filter((b) => b.enabled !== false && b.url && !b.url.includes('YOUR_KEY'));
-    const chosen = [...list, ...custom.map((b) => ({ ...b, maxZoom: 22 }))].find((b) => b.id === id) || list[0];
+    const custom = (state.settings.customBasemaps || [])
+      .filter((b) => b.enabled !== false && b.url && !b.url.includes('YOUR_KEY'))
+      .map((b) => ({ ...b, maxNativeZoom: b.maxNativeZoom ?? b.maxZoom ?? 19 }));
+    const chosen = [...list, ...custom].find((b) => b.id === id) || list[0];
     if (!chosen) return null;
     currentBasemap = chosen;
     if (tileLayer) {
@@ -100,11 +113,17 @@ export function createMap(container, options = {}) {
       tileLayer = null;
     }
     if (chosen.url) {
+      // maxNativeZoom = zoom tertinggi yang benar-benar tersedia dari penyedia.
+      // Di atas itu Leaflet memperbesar tile terakhir, sehingga tidak muncul
+      // placeholder "Map data not yet available" saat zoom dekat.
+      const native = chosen.maxNativeZoom ?? chosen.maxZoom ?? 19;
       const tileOpts = {
-        maxZoom: chosen.maxZoom || 19,
-        maxNativeZoom: chosen.maxZoom || 19,
+        maxZoom: 22,
+        maxNativeZoom: native,
         attribution: chosen.attribution || '',
         crossOrigin: true,
+        keepBuffer: 4,
+        updateWhenZooming: false,
         className: 'nms-tiles',
       };
       if (chosen.subdomains) tileOpts.subdomains = chosen.subdomains;
@@ -743,6 +762,9 @@ export function createMap(container, options = {}) {
   map.on('mousemove', (event) => {
     opts.onMouseMove?.({ lat: event.latlng.lat, lng: event.latlng.lng, zoom: map.getZoom() });
   });
+  // Jeda animasi CSS saat peta digeser supaya panning terasa ringan.
+  map.on('movestart', () => container.classList.add('map-moving'));
+  map.on('moveend', () => container.classList.remove('map-moving'));
   map.on('moveend', () => {
     if (opts.mini) return;
     try {

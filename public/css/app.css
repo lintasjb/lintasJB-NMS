@@ -839,6 +839,13 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
 .node-marker.is-fault .nm-icon { border-color: var(--danger); color: var(--danger); }
 .map-canvas.no-labels .nm-label { display: none; }
 .map-canvas.no-anim .nm-halo, .map-canvas.no-anim .cable-line { animation: none !important; }
+.map-canvas .leaflet-tile-pane { transform: translateZ(0); backface-visibility: hidden; }
+.map-canvas.map-moving .nm-halo,
+.map-canvas.map-moving .cable-line,
+.map-canvas.map-moving .ul-ring,
+.map-canvas.map-moving .sl-ring,
+.map-canvas.map-moving .fm-rings::before,
+.map-canvas.map-moving .fm-rings::after { animation: none !important; }
 
 /* Cable SVG animation */
 .cable-line { stroke-linecap: round; stroke-linejoin: round; transition: stroke .2s, stroke-width .2s; filter: drop-shadow(0 0 2px rgba(0,0,0,.5)); }

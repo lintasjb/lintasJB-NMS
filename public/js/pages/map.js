@@ -133,6 +133,15 @@ export async function render(view) {
   const toolbar = view.querySelector('#map-toolbar');
   const addMenu = view.querySelector('#add-menu');
   const drawbarSlot = view.querySelector('#drawbar-slot');
+  const SIDE_KEY = 'lintasjb.mapSide';
+  const setSideState = (collapsed) => {
+    side.classList.toggle('collapsed', Boolean(collapsed));
+    try { localStorage.setItem(SIDE_KEY, collapsed ? 'collapsed' : 'open'); } catch { /* ignore */ }
+  };
+  // Panel layer & basemap tampil oleh default; status terakhir pengguna dipertahankan.
+  let savedSide = 'open';
+  try { savedSide = localStorage.getItem(SIDE_KEY) || 'open'; } catch { /* ignore */ }
+  if (window.innerWidth > 640) setSideState(savedSide === 'collapsed');
   let ctl;
 
   const clearDrawbar = () => { drawbarSlot.innerHTML = ''; };
@@ -491,7 +500,8 @@ export async function render(view) {
         if (window.innerWidth <= 640) {
           side.classList.remove('collapsed');
           side.classList.toggle('mobile-open');
-        } else side.classList.toggle('collapsed');
+          try { localStorage.setItem(SIDE_KEY, 'open'); } catch { /* ignore */ }
+        } else setSideState(!side.classList.contains('collapsed'));
       } else if (action === 'fit') {
         ctl.fit();
         toast.info('Peta di-fit', 'Menampilkan seluruh node dan kabel.');
@@ -554,7 +564,7 @@ export async function render(view) {
 
   view.querySelector('#map-side-toggle')?.addEventListener('click', (event) => {
     event.stopPropagation();
-    side.classList.remove('collapsed');
+    setSideState(false);
     side.classList.toggle('mobile-open');
   });
 
