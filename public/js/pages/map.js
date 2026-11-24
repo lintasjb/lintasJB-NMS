@@ -133,15 +133,13 @@ export async function render(view) {
   const toolbar = view.querySelector('#map-toolbar');
   const addMenu = view.querySelector('#add-menu');
   const drawbarSlot = view.querySelector('#drawbar-slot');
-  const SIDE_KEY = 'lintasjb.mapSide';
+  // Panel layer & basemap disembunyikan oleh default dan hanya muncul
+  // saat tombol "Layer & basemap" diklik (klik lagi untuk menutup).
   const setSideState = (collapsed) => {
     side.classList.toggle('collapsed', Boolean(collapsed));
-    try { localStorage.setItem(SIDE_KEY, collapsed ? 'collapsed' : 'open'); } catch { /* ignore */ }
+    if (collapsed) side.classList.remove('mobile-open');
   };
-  // Panel layer & basemap tampil oleh default; status terakhir pengguna dipertahankan.
-  let savedSide = 'open';
-  try { savedSide = localStorage.getItem(SIDE_KEY) || 'open'; } catch { /* ignore */ }
-  if (window.innerWidth > 640) setSideState(savedSide === 'collapsed');
+  setSideState(true);
   let ctl;
 
   const clearDrawbar = () => { drawbarSlot.innerHTML = ''; };
@@ -497,11 +495,9 @@ export async function render(view) {
           onCancel: () => clearDrawbar(),
         });
       } else if (action === 'layers') {
-        if (window.innerWidth <= 640) {
-          side.classList.remove('collapsed');
-          side.classList.toggle('mobile-open');
-          try { localStorage.setItem(SIDE_KEY, 'open'); } catch { /* ignore */ }
-        } else setSideState(!side.classList.contains('collapsed'));
+        const willOpen = side.classList.contains('collapsed');
+        setSideState(!willOpen);
+        if (window.innerWidth <= 640 && willOpen) side.classList.add('mobile-open');
       } else if (action === 'fit') {
         ctl.fit();
         toast.info('Peta di-fit', 'Menampilkan seluruh node dan kabel.');
