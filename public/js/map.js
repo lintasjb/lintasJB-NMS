@@ -73,6 +73,7 @@ export function createMap(container, options = {}) {
     user: L.layerGroup().addTo(map),
     draw: L.layerGroup().addTo(map),
     search: L.layerGroup().addTo(map),
+    routeHandles: L.layerGroup().addTo(map),
   };
 
   let drawState = null;
@@ -80,6 +81,8 @@ export function createMap(container, options = {}) {
   let userMarker = null;
   let accuracyCircle = null;
   let searchMarker = null;
+  let routePickState = null;
+  let routeEditState = null;
 
   function applyContainerClasses() {
     container.classList.toggle('no-labels', !state.filters.labels);
@@ -187,7 +190,9 @@ export function createMap(container, options = {}) {
           opts.onNode?.(target);
         });
       });
-      marker.on('click', () => { if (!pickState && !drawState) marker.openPopup(); });
+      marker.on('click', () => {
+        if (!pickState && !drawState && !routePickState && !routeEditState) marker.openPopup();
+      });
       marker.addTo(layers.nodes);
     }
   }
@@ -243,7 +248,17 @@ export function createMap(container, options = {}) {
       });
       hit.addTo(layers.cables);
 
-      const open = () => { if (!pickState && !drawState) opts.onCable?.(cable); };
+      const open = () => {
+        if (routePickState) {
+          const pick = routePickState.onPick;
+          cancelRoutePick({ silent: true });
+          setTimeout(() => map.closePopup(), 0);
+          pick?.(cable);
+          return;
+        }
+        if (routeEditState) { setTimeout(() => map.closePopup(), 0); return; }
+        if (!pickState && !drawState) opts.onCable?.(cable);
+      };
       line.on('click', open);
       hit.on('click', open);
       line.bindPopup(cablePopup(cable), { maxWidth: 290 });
@@ -419,8 +434,168 @@ export function createMap(container, options = {}) {
     searchMarker = null;
   }
 
+  /* ------------------------------------ edit rute kabel -------------------- */
+  function startRoutePick({ onPick, onCancel } = {}) {
+    cancelRoutePick({ silent: true });
+    cancelEditRoute({ silent: true });
+    routePickState = { onPick, onCancel };
+    container.classList.add('mode-route-pick');
+    map.getContainer().style.cursor = 'crosshair';
+  }
+
+  function cancelRoutePick({ silent = false } = {}) {
+    if (!routePickState) return;
+    const prev = routePickState;
+    routePickState = null;
+    container.classList.remove('mode-route-pick');
+    map.getContainer().style.cursor = '';
+    if (!silent) prev.onCancel?.();
+  }
+
+  function redrawRouteLine() {
+    if (!routeEditState) return;
+    if (routeEditState.line) {
+      layers.draw.removeLayer(routeEditState.line);
+      routeEditState.line = null;
+    }
+    if (routeEditState.path.length < 2) return;
+    routeEditState.line = L.polyline(routeEditState.path, {
+      pane: 'cablesPane',
+      color: '#f5a524',
+      weight: 7,
+      opacity: 1,
+      dashArray: '9 7',
+      className: 'route-edit-line',
+    }).addTo(layers.draw);
+  }
+
+  function renderRouteEdit() {
+    if (!routeEditState) return;
+    layers.routeHandles.clearLayers();
+    redrawRouteLine();
+    routeEditState.path.forEach((p, i) => {
+      const selected = i === routeEditState.selected;
+      const marker = L.marker(p, {
+        icon: L.divIcon({
+          className: 'route-handle-wrap',
+          html: `<div class="route-handle ${selected ? 'selected' : ''}">${i + 1}</div>`,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        }),
+        draggable: true,
+        autoPan: true,
+        zIndexOffset: 2200 + i,
+        bubblingMouseEvents: false,
+      }).addTo(layers.routeHandles);
+      marker.bindTooltip(`Titik ${i + 1} · ${fmt.coord(p[0], p[1], 6)}`, { direction: 'top', offset: [0, -12] });
+      marker.on('drag', (event) => {
+        const ll = event.target.getLatLng();
+        routeEditState.path[i] = [Number(ll.lat.toFixed(7)), Number(ll.lng.toFixed(7))];
+        redrawRouteLine();
+      });
+      marker.on('dragend', () => routeEditState?.onChange?.(routeEditState.path));
+      marker.on('click', () => {
+        if (!routeEditState) return;
+        routeEditState.selected = i;
+        renderRouteEdit();
+        routeEditState.onChange?.(routeEditState.path);
+      });
+      marker.on('contextmenu', (event) => {
+        L.DomEvent.preventDefault(event.originalEvent);
+        deleteRoutePoint(i);
+      });
+    });
+  }
+
+  function startEditRoute(cable, { onChange, onSave, onCancel } = {}) {
+    cancelRoutePick({ silent: true });
+    cancelEditRoute({ silent: true });
+    cancelPick({ silent: true });
+    cancelDrawCable({ silent: true });
+    const clone = (cable.path || []).map((p) => [Number(p[0]), Number(p[1])]);
+    routeEditState = {
+      cable,
+      path: clone,
+      original: clone.map((p) => [...p]),
+      selected: -1,
+      addMode: false,
+      onChange,
+      onSave,
+      onCancel,
+      line: null,
+    };
+    container.classList.add('mode-edit-route');
+    map.getContainer().style.cursor = '';
+    routeEditState.onMapClick = (event) => {
+      if (!routeEditState?.addMode) return;
+      routeEditState.path.push([Number(event.latlng.lat.toFixed(7)), Number(event.latlng.lng.toFixed(7))]);
+      routeEditState.selected = routeEditState.path.length - 1;
+      routeEditState.addMode = false;
+      map.getContainer().style.cursor = '';
+      renderRouteEdit();
+      routeEditState.onChange?.(routeEditState.path);
+    };
+    map.on('click', routeEditState.onMapClick);
+    renderRouteEdit();
+    if (clone.length) map.fitBounds(L.latLngBounds(clone), { padding: [70, 70], maxZoom: 18, animate: true });
+  }
+
+  function cancelEditRoute({ silent = false } = {}) {
+    if (!routeEditState) return;
+    const prev = routeEditState;
+    routeEditState = null;
+    map.off('click', prev.onMapClick);
+    layers.draw.clearLayers();
+    layers.routeHandles.clearLayers();
+    container.classList.remove('mode-edit-route');
+    map.getContainer().style.cursor = '';
+    if (!silent) prev.onCancel?.();
+  }
+
+  function finishEditRoute() {
+    if (!routeEditState || routeEditState.path.length < 2) return false;
+    const path = routeEditState.path.map((p) => [...p]);
+    routeEditState.onSave?.(path);
+    return true;
+  }
+
+  function addRoutePoint() {
+    if (!routeEditState) return;
+    routeEditState.addMode = true;
+    map.getContainer().style.cursor = 'crosshair';
+    routeEditState.onChange?.(routeEditState.path);
+  }
+
+  function deleteRoutePoint(index) {
+    if (!routeEditState || routeEditState.path.length <= 2) return false;
+    const target = Number.isInteger(index) ? index : routeEditState.selected >= 0 ? routeEditState.selected : routeEditState.path.length - 1;
+    if (target < 0 || target >= routeEditState.path.length) return false;
+    routeEditState.path.splice(target, 1);
+    routeEditState.selected = -1;
+    renderRouteEdit();
+    routeEditState.onChange?.(routeEditState.path);
+    return true;
+  }
+
+  function undoRoutePoint() {
+    if (!routeEditState || routeEditState.path.length <= 2) return false;
+    return deleteRoutePoint(routeEditState.path.length - 1);
+  }
+
+  function resetRouteEdit() {
+    if (!routeEditState) return;
+    routeEditState.path = routeEditState.original.map((p) => [...p]);
+    routeEditState.selected = -1;
+    routeEditState.addMode = false;
+    map.getContainer().style.cursor = '';
+    renderRouteEdit();
+    routeEditState.onChange?.(routeEditState.path);
+  }
+
   function setPickMode(kind, { onPick, onCancel, onChange } = {}) {
     cancelPick();
+    cancelRoutePick({ silent: true });
+    cancelEditRoute({ silent: true });
     pickState = { kind, onPick, onCancel, onChange };
     container.classList.toggle('mode-add-node', kind === 'node');
     container.classList.toggle('mode-coordinate', kind === 'coordinate');
@@ -492,6 +667,8 @@ export function createMap(container, options = {}) {
 
   function startDrawCable({ color = '#22d3ee', onChange, onFinish } = {}) {
     cancelPick();
+    cancelRoutePick({ silent: true });
+    cancelEditRoute({ silent: true });
     if (drawState) cancelDrawCable();
     drawState = { path: [], color, onChange, onFinish };
     container.classList.add('mode-draw-cable');
@@ -599,6 +776,16 @@ export function createMap(container, options = {}) {
     showUserLocation,
     startPickMode: setPickMode,
     cancelPick,
+    startRoutePick,
+    cancelRoutePick,
+    startEditRoute,
+    cancelEditRoute,
+    finishEditRoute,
+    addRoutePoint,
+    deleteRoutePoint,
+    undoRoutePoint,
+    resetRouteEdit,
+    isRouteEditing: () => Boolean(routeEditState),
     startDrawCable,
     undoDrawPoint,
     finishDrawCable,

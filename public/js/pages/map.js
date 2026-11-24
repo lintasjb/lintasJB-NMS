@@ -53,6 +53,7 @@ export async function render(view) {
         ${Object.entries(NODE_TYPES).map(([type, meta]) => `<button data-add-node="${type}">${icon(meta.icon)} ${esc(meta.label)}</button>`).join('')}
       </div>
       <button class="mt-btn" data-tip="Gambar rute kabel" data-action="draw">${icon('cable')}</button>
+      <button class="mt-btn" data-tip="Edit rute kabel" data-action="edit-route">${icon('edit')}</button>
       <div class="mt-sep"></div>
       <button class="mt-btn" data-tip="Lokasi saya" data-action="locate">${icon('navigation')}</button>
       <button class="mt-btn" data-tip="Ambil titik koordinat" data-action="coordinate">${icon('crosshair')}</button>
@@ -145,6 +146,9 @@ export async function render(view) {
 
   const beginNodePlacement = (type) => {
     addMenu.classList.remove('open');
+    toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
+    ctl?.cancelRoutePick({ silent: true });
+    ctl?.cancelEditRoute({ silent: true });
     const meta = NODE_TYPES[type];
     showDrawbar({
       title: `Menempatkan ${meta.label}`,
@@ -163,6 +167,9 @@ export async function render(view) {
 
   const beginCableDraw = () => {
     addMenu.classList.remove('open');
+    toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
+    ctl?.cancelRoutePick({ silent: true });
+    ctl?.cancelEditRoute({ silent: true });
     toolbar.querySelector('[data-action="draw"]')?.classList.add('active');
     const update = (path) => {
       showDrawbar({
@@ -389,6 +396,50 @@ export async function render(view) {
   };
   document.addEventListener('click', closeSearchOutside);
 
+  /* ------------------------------------------------------------ edit rute */
+  const routeInfo = (path) => `${(path || []).length} titik · ${fmt.km(pathLength(path || []))}`;
+
+  const beginRouteEdit = (cable) => {
+    if (!cable) return;
+    toolbar.querySelector('[data-action="edit-route"]')?.classList.add('active');
+    const updateText = (path) => {
+      const el = drawbarSlot.querySelector('.db-text span');
+      if (el) el.textContent = `${cable.name} · ${routeInfo(path)}`;
+    };
+    showDrawbar({
+      title: 'Edit rute',
+      text: `${cable.name} · ${routeInfo(cable.path)}`,
+      actions: [
+        { id: 'route-add', label: 'Tambah titik', icon: 'plus' },
+        { id: 'route-delete', label: 'Hapus titik', icon: 'trash' },
+        { id: 'route-undo', icon: 'swap', title: 'Hapus titik terakhir' },
+        { id: 'route-reset', icon: 'refresh', title: 'Kembalikan rute awal' },
+        { id: 'route-cancel', label: 'Batal', icon: 'x' },
+        { id: 'route-save', label: 'Simpan rute', icon: 'save', primary: true },
+      ],
+    });
+    ctl.startEditRoute(cable, {
+      onChange: updateText,
+      onSave: async (path) => {
+        try {
+          await api.put(`/cables/${cable.id}`, { path });
+          ctl.cancelEditRoute({ silent: true });
+          toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
+          clearDrawbar();
+          toast.success('Rute tersimpan', `${cable.name} · ${routeInfo(path)}.`);
+          requestRefresh();
+        } catch (err) {
+          errorToast(err);
+        }
+      },
+      onCancel: () => {
+        toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
+        clearDrawbar();
+      },
+    });
+    toast.info('Mode edit rute', 'Seret titik kuning, klik titik untuk memilih, atau Tambah titik lalu klik peta.');
+  };
+
   view.addEventListener('click', async (event) => {
     const menuBtn = event.target.closest('[data-menu]');
     if (menuBtn) {
@@ -408,6 +459,22 @@ export async function render(view) {
         if (ctl.isDrawing()) { ctl.cancelDrawCable(); toolbar.querySelector('[data-action="draw"]')?.classList.remove('active'); clearDrawbar(); }
         else if (ctl.isPicking()) { ctl.cancelPick(); clearDrawbar(); }
         else beginCableDraw();
+      } else if (action === 'edit-route') {
+        if (ctl.isRouteEditing()) {
+          ctl.cancelEditRoute();
+          toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
+          clearDrawbar();
+        } else {
+          showDrawbar({
+            title: 'Edit rute kabel',
+            text: 'Klik kabel di peta yang rutenya ingin diubah.',
+            actions: [{ id: 'cancel', label: 'Batal', icon: 'x' }],
+          });
+          ctl.startRoutePick({
+            onPick: (cable) => beginRouteEdit(cable),
+            onCancel: () => clearDrawbar(),
+          });
+        }
       } else if (action === 'locate') {
         try {
           const result = await ctl.locate();
@@ -450,8 +517,27 @@ export async function render(view) {
     if (db) {
       if (db === 'cancel') {
         ctl.cancelPick();
+        ctl.cancelRoutePick();
+        ctl.cancelEditRoute();
         ctl.cancelDrawCable();
         toolbar.querySelector('[data-action="draw"]')?.classList.remove('active');
+        toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
+        clearDrawbar();
+      } else if (db === 'route-add') {
+        ctl.addRoutePoint();
+        toast.info('Tambah titik rute', 'Klik pada peta untuk menambah titik baru.');
+      } else if (db === 'route-delete') {
+        if (!ctl.deleteRoutePoint()) toast.warn('Titik tidak dihapus', 'Rute minimal terdiri dari dua titik.');
+      } else if (db === 'route-undo') {
+        if (!ctl.undoRoutePoint()) toast.warn('Titik tidak dihapus', 'Rute minimal terdiri dari dua titik.');
+      } else if (db === 'route-reset') {
+        ctl.resetRouteEdit();
+        toast.info('Rute dikembalikan', 'Titik rute kembali ke kondisi sebelum diedit.');
+      } else if (db === 'route-save') {
+        if (!ctl.finishEditRoute()) toast.warn('Rute belum cukup', 'Rute minimal terdiri dari dua titik.');
+      } else if (db === 'route-cancel') {
+        ctl.cancelEditRoute();
+        toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
         clearDrawbar();
       } else if (db === 'undo') {
         ctl.undoDrawPoint();
