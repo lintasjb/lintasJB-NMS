@@ -114,6 +114,22 @@ export function createMap(container, options = {}) {
     return chosen;
   }
 
+  /**
+   * Pasang listener aksi pada KONTEN popup, bukan pada tombolnya.
+   * Leaflet menulis ulang innerHTML popup setelah event popupopen, sehingga
+   * tombol yang ada saat event itu fired bukan lagi tombol yang diklik user.
+   * Elemen popup-nya sendiri stabil, jadi delegation di sini aman.
+   */
+  function bindPopupAction(popupEl, selector, handler) {
+    if (!popupEl || popupEl.dataset.actionBound === '1') return;
+    popupEl.dataset.actionBound = '1';
+    popupEl.addEventListener('click', (event) => {
+      const trigger = event.target.closest?.(selector);
+      if (!trigger) return;
+      handler(trigger);
+    });
+  }
+
   function nodePopup(node) {
     const m = nodeMeta(node.type);
     return `<div style="min-width:200px">
@@ -162,10 +178,11 @@ export function createMap(container, options = {}) {
       });
       marker.bindPopup(nodePopup(node), { closeButton: true, offset: [0, -12], maxWidth: 280 });
       marker.on('popupopen', (event) => {
-        const el = event.popup.getElement();
-        el?.querySelector('[data-open-node]')?.addEventListener('click', () => {
+        bindPopupAction(event.popup.getElement(), '[data-open-node]', (btn) => {
+          const target = state.nodes.find((n) => n.id === btn.dataset.openNode);
+          if (!target) return;
           marker.closePopup();
-          opts.onNode?.(node);
+          opts.onNode?.(target);
         });
       });
       marker.on('click', () => { if (!pickState && !drawState) marker.openPopup(); });
@@ -229,10 +246,11 @@ export function createMap(container, options = {}) {
       hit.on('click', open);
       line.bindPopup(cablePopup(cable), { maxWidth: 290 });
       line.on('popupopen', (event) => {
-        const popupEl = event.popup.getElement();
-        popupEl?.querySelector('[data-open-cable]')?.addEventListener('click', () => {
+        bindPopupAction(event.popup.getElement(), '[data-open-cable]', (btn) => {
+          const target = state.cables.find((c) => c.id === btn.dataset.openCable);
+          if (!target) return;
           line.closePopup();
-          opts.onCable?.(cable);
+          opts.onCable?.(target);
         });
       });
       hit.bindTooltip(
@@ -263,7 +281,10 @@ export function createMap(container, options = {}) {
         <button class="btn btn-xs btn-danger" style="margin-top:9px" data-open-fault="${esc(fault.id)}">Buka fault locator</button>
       </div>`, { maxWidth: 300 });
       marker.on('popupopen', (event) => {
-        event.popup.getElement()?.querySelector('[data-open-fault]')?.addEventListener('click', () => opts.onFault?.(fault));
+        bindPopupAction(event.popup.getElement(), '[data-open-fault]', (btn) => {
+          const target = state.faults.find((f) => f.id === btn.dataset.openFault);
+          if (target) opts.onFault?.(target);
+        });
       });
       marker.addTo(layers.faults);
     }
