@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { pathLength } from './lib/geo.js';
 import { createTrialLicense } from './lib/license.js';
+import { DEFAULT_PRICING } from './lib/pricing.js';
 import { randomToken } from './lib/secret.js';
 
 const now = () => new Date().toISOString();
@@ -656,6 +657,7 @@ export function buildSeed() {
           enabled: false,
         },
       ],
+      pricing: JSON.parse(JSON.stringify(DEFAULT_PRICING)),
       updatedAt: now(),
     },
     cache: {

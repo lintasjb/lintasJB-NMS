@@ -21,6 +21,7 @@ const PAGE_LOADERS = {
   devices: () => import('./pages/devices.js'),
   transfer: () => import('./pages/transfer.js'),
   settings: () => import('./pages/settings.js'),
+  admin: () => import('./pages/admin.js'),
   about: () => import('./pages/about.js'),
 };
 
@@ -215,6 +216,10 @@ function updateShell() {
   for (const el of document.querySelectorAll('[data-user-name]')) el.textContent = user.name || 'Pengguna';
   for (const el of document.querySelectorAll('[data-user-role]')) el.textContent = ROLE_LABEL[user.role] || user.role || 'Operator';
   for (const el of document.querySelectorAll('[data-user-initials]')) el.textContent = fmt.initials(user.name || 'NA');
+
+  const canAdmin = ['superadmin', 'admin'].includes(user.role);
+  for (const el of document.querySelectorAll('[data-admin-only]')) el.classList.toggle('hidden', !canAdmin);
+  if (!canAdmin && currentView() === 'admin') navigate('dashboard');
 
   const license = state.license || {};
   setText('[data-license-plan]', String(license.planLabel || license.plan || 'TRIAL').toUpperCase());

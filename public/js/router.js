@@ -8,6 +8,7 @@ export const ROUTES = {
   devices: { title: 'Perangkat', subtitle: 'GenieACS, OLT multi-vendor, dan MikroTik RouterOS' },
   transfer: { title: 'Import / Export', subtitle: 'KML, KMZ, GeoJSON, dan CSV untuk project peta' },
   settings: { title: 'Pengaturan', subtitle: 'Branding, peta, alarm, lisensi, dan integrasi' },
+  admin: { title: 'Admin Panel', subtitle: 'Kelola pengguna, project, aktivitas, dan sistem' },
   about: { title: 'Tentang Aplikasi', subtitle: 'Informasi produk, teknologi, kontak, dan kredit' },
 };
 

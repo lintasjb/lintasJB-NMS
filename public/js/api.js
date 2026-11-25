@@ -239,9 +239,23 @@ export const integration = {
   runMonitor: () => post('/monitor/run', {}),
 };
 
+export const admin = {
+  overview: () => get('/admin/overview'),
+  activity: (params = {}) => get(`/admin/activity${qs(params)}`),
+  pricing: () => get('/admin/pricing'),
+  savePricing: (plans) => put('/admin/pricing', { plans }),
+  backup: () => download('/admin/backup', 'lintasjb-backup.json'),
+  createUser: (payload) => post('/auth/users', payload),
+  resetPassword: (id, newPassword) => post(`/auth/users/${id}/password`, { newPassword }),
+  projects: () => get('/projects'),
+  createProject: (payload) => post('/projects', payload),
+  duplicateProject: (id, name) => post(`/projects/${id}/duplicate`, { name }),
+  deleteProject: (id) => del(`/projects/${id}`),
+};
+
 export default {
   get, post, put, del, request, qs, download, upload,
-  auth, bootstrap, stats, integration,
+  auth, bootstrap, stats, integration, admin,
   getToken, setSession, clearSession, getProjectId, setProjectId,
   connectEvents, closeEvents,
 };

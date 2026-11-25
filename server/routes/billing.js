@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { getDb, save } from '../lib/store.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { generateLicense, licenseStatus, PLANS } from '../lib/license.js';
+import { pricingOf } from '../lib/pricing.js';
 import { pushActivity } from '../lib/faults.js';
 import { emitEvent } from '../lib/events.js';
 import { randomToken } from '../lib/secret.js';
@@ -94,12 +95,18 @@ router.get(
       methods: PAYMENT_METHODS,
       config: billingConfig(db.settings),
       priceSuggestions: PRICE_SUGGESTIONS,
-      plans: Object.entries(PLANS).map(([id, plan]) => ({
-        id,
-        label: plan.label,
-        maxNodes: plan.maxNodes,
-        months: plan.months,
-      })),
+      plans: Object.entries(PLANS).map(([id, plan]) => {
+        const custom = pricingOf(db.settings).plans.find((p) => p.id === id);
+        return {
+          id,
+          label: plan.label,
+          maxNodes: plan.maxNodes,
+          months: plan.months,
+          monthly: custom ? custom.monthly : null,
+          yearly: custom ? custom.yearly : null,
+          currency: 'IDR',
+        };
+      }),
       orders: (db.orders || [])
         .filter((o) => isAdmin(req.user) || o.userId === req.user.id)
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))

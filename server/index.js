@@ -14,6 +14,7 @@ import settingsRoutes from './routes/settings.js';
 import integrationRoutes from './routes/integrations.js';
 import ioRoutes from './routes/io.js';
 import billingRoutes from './routes/billing.js';
+import adminRoutes from './routes/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -110,6 +111,7 @@ app.use('/api', settingsRoutes);
 app.use('/api', integrationRoutes);
 app.use('/api', ioRoutes);
 app.use('/api', billingRoutes);
+app.use('/api', adminRoutes);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ error: `Endpoint API tidak ditemukan: ${req.method} ${req.originalUrl}` });

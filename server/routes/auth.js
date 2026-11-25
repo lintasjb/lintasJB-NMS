@@ -222,6 +222,75 @@ router.get(
   })
 );
 
+router.post(
+  '/users',
+  requireAuth,
+  requireRole('superadmin', 'admin'),
+  asyncHandler(async (req, res) => {
+    const db = getDb();
+    const name = cleanText(req.body.name, 80);
+    const email = cleanText(req.body.email, 120).toLowerCase();
+    const password = String(req.body.password || '');
+    const role = ROLES.includes(req.body.role) ? req.body.role : 'operator';
+    requireFields({ name, email, password }, ['name', 'email', 'password']);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw httpError(400, 'Format email tidak valid.');
+    if (db.users.some((u) => u.email.toLowerCase() === email)) {
+      throw httpError(409, 'Email sudah terdaftar.');
+    }
+    if (role === 'superadmin' && req.user.role !== 'superadmin') {
+      throw httpError(403, 'Hanya superadmin yang dapat membuat akun superadmin.');
+    }
+    validatePassword(password);
+    const user = {
+      id: `usr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      name,
+      username: uniqueUsername(db, req.body.username || email.split('@')[0]),
+      email,
+      passwordHash: hashPassword(password),
+      role,
+      company: cleanText(req.body.company, 120) || 'Personal',
+      phone: cleanText(req.body.phone, 30),
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      lastLoginAt: null,
+    };
+    db.users.push(user);
+    pushActivity(db, {
+      userId: req.user.id,
+      userName: req.user.name,
+      action: 'user.create',
+      detail: `Menambahkan pengguna ${user.name} (${user.email}) dengan role ${user.role}.`,
+    });
+    save();
+    res.status(201).json({ user: publicUser(user) });
+  })
+);
+
+router.post(
+  '/users/:id/password',
+  requireAuth,
+  requireRole('superadmin', 'admin'),
+  asyncHandler(async (req, res) => {
+    const db = getDb();
+    const user = db.users.find((u) => u.id === req.params.id);
+    if (!user) throw httpError(404, 'User tidak ditemukan.');
+    if (user.role === 'superadmin' && req.user.role !== 'superadmin') {
+      throw httpError(403, 'Hanya superadmin yang dapat mengubah password superadmin.');
+    }
+    const newPassword = String(req.body.newPassword || '');
+    validatePassword(newPassword);
+    user.passwordHash = hashPassword(newPassword);
+    pushActivity(db, {
+      userId: req.user.id,
+      userName: req.user.name,
+      action: 'user.password',
+      detail: `Mereset password akun ${user.name} (${user.email}).`,
+    });
+    save();
+    res.json({ ok: true, message: `Password ${user.name} berhasil direset.` });
+  })
+);
+
 router.put(
   '/users/:id',
   requireAuth,
@@ -230,6 +299,12 @@ router.put(
     const db = getDb();
     const user = db.users.find((u) => u.id === req.params.id);
     if (!user) throw httpError(404, 'User tidak ditemukan.');
+    if (user.role === 'superadmin' && req.user.role !== 'superadmin') {
+      throw httpError(403, 'Hanya superadmin yang dapat mengubah akun superadmin.');
+    }
+    if (req.body.name !== undefined) user.name = cleanText(req.body.name, 80) || user.name;
+    if (req.body.company !== undefined) user.company = cleanText(req.body.company, 120);
+    if (req.body.phone !== undefined) user.phone = cleanText(req.body.phone, 30);
     if (req.body.role !== undefined) {
       if (!ROLES.includes(req.body.role)) throw httpError(400, 'Role tidak valid.');
       if (user.id === req.user.id && req.body.role !== 'superadmin') {
@@ -258,6 +333,9 @@ router.delete(
     if (req.params.id === req.user.id) throw httpError(400, 'Tidak dapat menghapus akun sendiri.');
     const user = db.users.find((u) => u.id === req.params.id);
     if (!user) throw httpError(404, 'User tidak ditemukan.');
+    if (user.role === 'superadmin' && req.user.role !== 'superadmin') {
+      throw httpError(403, 'Hanya superadmin yang dapat menghapus akun superadmin.');
+    }
     if (user.role === 'superadmin' && db.users.filter((u) => u.role === 'superadmin').length <= 1) {
       throw httpError(400, 'Minimal satu superadmin harus tersedia.');
     }

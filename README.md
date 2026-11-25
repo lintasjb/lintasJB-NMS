@@ -20,9 +20,10 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
 7. [POSGIS fault locator](#posgis-fault-locator)
 8. [Import / export](#import--export)
 9. [Lisensi](#lisensi)
-10. [Struktur project](#struktur-project)
-11. [API ringkas](#api-ringkas)
-12. [Troubleshooting](#troubleshooting)
+10. [Admin Panel](#admin-panel)
+11. [Struktur project](#struktur-project)
+12. [API ringkas](#api-ringkas)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -64,6 +65,8 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
   kontak, kredit, pintasan keyboard, dan tombol salin info sistem.
 - Semua kolom input memakai tema gelap yang konsisten (termasuk autofill Chrome/Edge).
 - Manajemen pengguna (superadmin/admin/operator/viewer), profil, dan ganti password.
+- **Admin Panel** (`#/admin`) khusus superadmin/admin: ringkasan sistem, pengguna & role,
+  project, log aktivitas, integrasi & lisensi, harga paket Rupiah, dan unduh backup.
 - Audit log aktivitas dan riwayat import/export.
 - Database JSON lokal (tanpa PostgreSQL/Docker) + backup mudah.
 - Tema gelap responsif untuk desktop dan mobile.
@@ -251,6 +254,43 @@ Skema SQL opsional untuk analitik PostGIS tersedia di [`docs/postgis.sql`](docs/
 
 ---
 
+## Admin Panel
+
+Halaman khusus administrator di `#/admin` (menu sidebar **Admin Panel**, hanya tampil untuk
+`superadmin` dan `admin`). Tab yang tersedia:
+
+| Tab | Isi |
+| --- | --- |
+| **Ringkasan** | Uptime, memori, jumlah pengguna/project/node, status monitor, integrasi, lisensi, aktivitas terakhir |
+| **Pengguna & Role** | Cari/filter, tambah akun, ubah role/status, reset password, hapus akun |
+| **Project** | Buka, buat, duplikasi, dan hapus project beserta topologinya |
+| **Log Aktivitas** | Audit login, CRUD, integrasi, lisensi, dan tindakan admin (filter + paging) |
+| **Integrasi & Lisensi** | Status GenieACS, OLT, MikroTik, dan pemakaian kuota lisensi |
+| **Harga & Paket** | Harga bulanan/tahunan dalam **Rupiah**; hanya superadmin yang dapat mengubah |
+| **Backup Data** | Unduh `db.json` (khusus superadmin) + panduan restore |
+
+Batasan akses:
+
+- `admin` dapat mengelola pengguna non-superadmin, tetapi tidak dapat membuat/mengubah akun
+  superadmin, mengubah harga, atau mengunduh backup.
+- `operator`/`viewer` tidak melihat menu Admin Panel dan mendapat `403` dari API admin.
+- Harga tersimpan di `settings.pricing` (`{ currency: 'IDR', plans: [...] }`) dan dipakai oleh
+  `/api/billing/config` untuk menampilkan harga paket.
+
+Contoh endpoint:
+
+```
+GET  /api/admin/overview        # ringkasan sistem
+GET  /api/admin/activity        # ?q=&action=&userId=&limit=&offset=
+GET  /api/admin/pricing
+PUT  /api/admin/pricing         # superadmin
+GET  /api/admin/backup          # superadmin, download db.json
+POST /api/auth/users            # tambah pengguna
+POST /api/auth/users/:id/password
+```
+
+---
+
 ## Struktur project
 
 ```
@@ -261,8 +301,8 @@ lintasjb-nms/
 │   ├── monitors.js           # polling otomatis perangkat
 │   ├── basemaps.js           # katalog basemap
 │   ├── adapters/             # genieacs.js, hioso.js, mikrotik.js
-│   ├── lib/                  # auth, store, geo, faults, license, billing, ...
-│   └── routes/               # auth, network, settings, integrations, io, billing
+│   ├── lib/                  # auth, store, geo, faults, license, billing, pricing, ...
+│   └── routes/               # auth, network, settings, integrations, io, billing, admin
 ├── public/
 │   ├── index.html            # shell SPA + sprite ikon
 │   ├── css/app.css           # design system
@@ -309,6 +349,12 @@ lintasjb-nms/
 | `GET` | `/api/billing/orders/:id/qr.png` | QRIS PNG (token via `?token=`) |
 | `POST` | `/api/billing/orders/:id/pay` | Admin verifikasi pembayaran |
 | `POST` | `/api/billing/orders/:id/cancel` | Batalkan tagihan |
+| `GET` | `/api/admin/overview` | Ringkasan sistem (superadmin/admin) |
+| `GET` | `/api/admin/activity` | Log aktivitas + filter (superadmin/admin) |
+| `GET/PUT` | `/api/admin/pricing` | Harga paket Rupiah (PUT: superadmin) |
+| `GET` | `/api/admin/backup` | Unduh `db.json` (superadmin) |
+| `POST` | `/api/auth/users` | Tambah pengguna (superadmin/admin) |
+| `POST` | `/api/auth/users/:id/password` | Reset password pengguna |
 | `GET` | `/api/events` | SSE realtime |
 | `GET` | `/api/health` | Health check publik |
 
