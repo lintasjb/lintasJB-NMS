@@ -83,7 +83,7 @@ function heroMarkup(app, license) {
   const active = Boolean(license?.active);
   return `<section class="about-hero">
     <div class="about-hero__brand">
-      <span class="about-logo">${icon('logo')}</span>
+      <span class="about-logo"><img data-logo src="/assets/lintasjb-mark.png" alt="lintasJB" /></span>
       <div>
         <span class="about-kicker">${esc(app.company)}</span>
         <h1>${esc(app.name)}</h1>
