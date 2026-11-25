@@ -235,7 +235,7 @@ select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmln
 .fiber-dot.d2 { fill: var(--accent-2); animation-duration: 13s; animation-direction: reverse; }
 .fiber-dot.d3 { animation-duration: 17s; }
 .auth-brand { display: flex; align-items: center; gap: 14px; position: relative; z-index: 2; }
-.auth-brand img { width: 46px; height: 46px; filter: drop-shadow(0 0 18px rgba(34,211,238,.3)); }
+.auth-brand img { width: 46px; height: 46px; object-fit: contain; filter: drop-shadow(0 0 18px rgba(34,211,238,.3)); }
 .auth-brand__company-plate { display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,.95); border-radius: 10px; padding: 7px 11px; box-shadow: 0 6px 20px rgba(0,0,0,.28); flex: none; }
 .auth-brand img.auth-brand__company { width: auto; height: 46px; max-width: 200px; object-fit: contain; filter: none; }
 .auth-brand__sep { width: 1px; height: 34px; background: linear-gradient(180deg, transparent, var(--line-strong), transparent); flex: none; }
@@ -288,7 +288,7 @@ select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmln
 .sidebar { width: var(--sidebar-w); flex: 0 0 var(--sidebar-w); display: flex; flex-direction: column; background: linear-gradient(180deg, rgba(11,20,34,.97), rgba(6,12,21,.99)); border-right: 1px solid var(--line); position: relative; z-index: 20; transition: width .22s ease, flex-basis .22s ease; }
 .sidebar-brand { height: var(--topbar-h); display: flex; align-items: center; justify-content: space-between; padding: 0 16px 0 18px; border-bottom: 1px solid rgba(29,44,67,.6); }
 .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
-.brand img { width: 36px; height: 36px; flex: 0 0 auto; filter: drop-shadow(0 0 12px rgba(34,211,238,.22)); }
+.brand img { width: 36px; height: 36px; flex: 0 0 auto; object-fit: contain; filter: drop-shadow(0 0 12px rgba(34,211,238,.22)); }
 .brand-text { display: flex; flex-direction: column; min-width: 0; }
 .brand-text b { font-size: 14.5px; letter-spacing: -.01em; line-height: 1.1; }
 .brand-text small { font-size: 9.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--dim); margin-top: 2px; white-space: nowrap; }
@@ -1016,7 +1016,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
    Boot screen
    ========================================================================== */
 .boot-screen { position: fixed; inset: 0; z-index: 2000; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
-.boot-logo img { width: 64px; height: 64px; animation: bootPulse 2s ease-in-out infinite; }
+.boot-logo img { width: 64px; height: 64px; object-fit: contain; animation: bootPulse 2s ease-in-out infinite; }
 .boot-spinner { width: 26px; height: 26px; border: 2px solid rgba(34,211,238,.15); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 .boot-screen p { font-size: 10.5px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
 
@@ -1064,7 +1064,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
   .auth-visual { display: none; }
   .auth-panel { min-height: 100vh; }
   .auth-logo-mobile { display: flex; align-items: center; gap: 9px; margin-bottom: 22px; font-size: 13px; font-weight: 750; }
-  .auth-logo-mobile img { width: 30px; height: 30px; }
+  .auth-logo-mobile img { width: 30px; height: 30px; object-fit: contain; }
   .transfer-grid { grid-template-columns: 1fr; }
   .settings-layout { grid-template-columns: 180px 1fr; }
 }

@@ -31,7 +31,7 @@ export const state = {
   ready: false,
   user: null,
   settings: {
-    branding: { companyName: 'lintasJB', appName: 'lintasJB NMS', tagline: 'Fiber Network Intelligence', logo: '/assets/logo.svg', accent: '#22d3ee', accent2: '#a3e635', footer: '' },
+    branding: { companyName: 'lintasJB', appName: 'lintasJB NMS', tagline: 'Fiber Network Intelligence', logo: '/assets/lintasjb-mark.png', accent: '#22d3ee', accent2: '#a3e635', footer: '' },
     map: { basemap: 'cartoDark', center: [-8.2, 114.02], zoom: 10, showLabels: true, animate: true, showFaults: true, showGrid: false },
     alarm: { enabled: true, volume: 0.55, pattern: 'siren', repeat: 3, onFault: true, onDevice: true, onCable: true },
     monitor: { enabled: true, intervalSec: 180, offlineAfterSec: 600, autoCableFault: true, autoCreateOnt: false },

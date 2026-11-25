@@ -67,7 +67,7 @@ function brandingTab() {
       ${sectionHead('Identitas & logo perusahaan', 'Nama, tagline, logo, dan warna aksen yang tampil di seluruh aplikasi.', 'palette')}
       <div class="settings-section__body">
         <div class="logo-upload mb-3">
-          <div class="logo-preview"><img src="${esc(b.logo || '/assets/logo.svg')}" alt="Logo" id="logo-preview-img" /></div>
+          <div class="logo-preview"><img src="${esc(b.logo || '/assets/lintasjb-mark.png')}" alt="Logo" id="logo-preview-img" /></div>
           <div class="grow">
             <b style="font-size:12px">Logo perusahaan</b>
             <p class="muted" style="font-size:10.5px;margin-top:2px">PNG, JPG, atau WEBP. Maksimal 3 MB. Disarankan latar transparan dan rasio 1:1.</p>
@@ -489,7 +489,7 @@ function bindBranding(content, view) {
       requestRefresh();
     } catch (err) {
       errorToast(err);
-      if (previewImg) previewImg.src = state.settings.branding?.logo || '/assets/logo.svg';
+      if (previewImg) previewImg.src = state.settings.branding?.logo || '/assets/lintasjb-mark.png';
     } finally {
       setTimeout(() => URL.revokeObjectURL(localUrl), 5000);
       logoInput.value = '';
@@ -500,7 +500,7 @@ function bindBranding(content, view) {
     try {
       const res = await api.post('/settings/logo/reset', {});
       toast.success('Logo direset', 'Logo bawaan lintasJB digunakan kembali.');
-      if (previewImg) previewImg.src = res.logo || '/assets/logo.svg';
+      if (previewImg) previewImg.src = res.logo || '/assets/lintasjb-mark.png';
       requestRefresh();
     } catch (err) {
       errorToast(err);

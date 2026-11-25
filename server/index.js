@@ -137,7 +137,7 @@ app.use(
   })
 );
 
-app.get('/favicon.ico', (req, res) => res.redirect(302, '/assets/logo.svg'));
+app.get('/favicon.ico', (req, res) => res.redirect(302, '/assets/lintasjb-mark.png'));
 
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();

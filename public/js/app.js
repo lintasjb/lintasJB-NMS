@@ -56,7 +56,8 @@ function branding() {
 
 function applyBranding() {
   const b = branding();
-  const logo = b.logo || '/assets/logo.svg';
+  // Instalasi lama masih menyimpan logo bawaan lama; petakan ke mark perusahaan.
+  const logo = !b.logo || b.logo === '/assets/logo.svg' ? '/assets/lintasjb-mark.png' : b.logo;
   for (const img of document.querySelectorAll('[data-logo]')) {
     if (img.getAttribute('src') !== logo) img.src = logo;
   }

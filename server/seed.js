@@ -606,7 +606,7 @@ export function buildSeed() {
         companyName: 'lintasJB',
         appName: 'lintasJB NMS',
         tagline: 'Fiber Network Intelligence',
-        logo: '/assets/logo.svg',
+        logo: '/assets/lintasjb-mark.png',
         accent: '#22d3ee',
         accent2: '#a3e635',
         footer: 'lintasJB NMS — Network Operations Center',

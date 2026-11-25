@@ -66,7 +66,7 @@ router.put(
       if (b.appName !== undefined) s.branding.appName = cleanText(b.appName, 60) || 'lintasJB NMS';
       if (b.tagline !== undefined) s.branding.tagline = cleanText(b.tagline, 100);
       if (b.footer !== undefined) s.branding.footer = cleanText(b.footer, 140);
-      if (b.logo === '/assets/logo.svg') s.branding.logo = b.logo;
+      if (b.logo === '/assets/lintasjb-mark.png' || b.logo === '/assets/logo.svg') s.branding.logo = b.logo;
       for (const key of ['accent', 'accent2']) {
         if (b[key] !== undefined) {
           if (!/^#[0-9a-fA-F]{6}$/.test(String(b[key]))) throw httpError(400, `${key} harus warna HEX.`);
@@ -202,7 +202,7 @@ router.post(
   requireRole('superadmin', 'admin'),
   asyncHandler(async (req, res) => {
     const db = getDb();
-    db.settings.branding.logo = '/assets/logo.svg';
+    db.settings.branding.logo = '/assets/lintasjb-mark.png';
     save();
     emitEvent('settings', { settings: sanitizeSettings(db.settings, req.user) });
     res.json({ logo: db.settings.branding.logo, settings: sanitizeSettings(db.settings, req.user) });

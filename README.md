@@ -266,7 +266,8 @@ lintasjb-nms/
 ├── public/
 │   ├── index.html            # shell SPA + sprite ikon
 │   ├── css/app.css           # design system
-│   ├── assets/logo.svg       # logo default
+│   ├── assets/lintasjb-mark.png   # mark perusahaan (default)
+│   ├── assets/lintasjb-logo-full.png # logo lengkap (halaman login)
 │   ├── vendor/leaflet/       # Leaflet lokal
 │   └── js/
 │       ├── app.js            # bootstrap, auth, shell, SSE, palette
