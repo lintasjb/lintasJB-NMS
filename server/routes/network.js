@@ -20,13 +20,19 @@ import { BASEMAPS } from '../basemaps.js';
 import { CABLE_ANIMATION_TYPES } from '../../public/js/cable-animations.js';
 import {
   asyncHandler,
+  assertProjectAccess,
+  blockDemo,
+  canAccessProject,
   clampNumber,
   cleanText,
   httpError,
+  isDemoUser,
   projectIdOf,
+  requireEntityProjectAccess,
   requireFields,
   resolveProject,
   sanitizeSettings,
+  visibleProjects,
 } from './helpers.js';
 
 const router = express.Router();
@@ -245,15 +251,23 @@ router.get(
         dataDir: DATA_DIR,
         memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
       },
-      stats: {
-        projects: db.projects.length,
-        nodes: db.nodes.length,
-        cables: db.cables.length,
-        users: db.users.length,
-        orders: (db.orders || []).length,
-        activeFaults: db.faults.filter((f) => f.status === 'active').length,
-        activeAlarms: db.alarms.filter((a) => !a.resolved).length,
-      },
+      stats: (() => {
+        const allowedIds = new Set(visibleProjects(db, req.user).map((p) => p.id));
+        const scopedNodes = db.nodes.filter((n) => allowedIds.has(n.projectId));
+        const scopedCables = db.cables.filter((c) => allowedIds.has(c.projectId));
+        const isAdmin = ['superadmin', 'admin'].includes(req.user.role);
+        return {
+          projects: allowedIds.size,
+          nodes: scopedNodes.length,
+          cables: scopedCables.length,
+          users: isAdmin ? db.users.length : null,
+          orders: isAdmin
+            ? (db.orders || []).length
+            : (db.orders || []).filter((o) => o.userId === req.user.id).length,
+          activeFaults: db.faults.filter((f) => allowedIds.has(f.projectId) && f.status === 'active').length,
+          activeAlarms: db.alarms.filter((a) => allowedIds.has(a.projectId) && !a.resolved).length,
+        };
+      })(),
       license,
       stack: [
         { name: 'Node.js', detail: 'Runtime server (ESM)' },
@@ -300,14 +314,20 @@ router.get(
   asyncHandler(async (req, res) => {
     const db = getDb();
     const requested = String(req.query.projectId || '');
+    const accessible = visibleProjects(db, req.user);
+    if (requested && db.projects.some((p) => p.id === requested) && !accessible.some((p) => p.id === requested)) {
+      throw httpError(403, 'Anda tidak memiliki akses ke project ini.');
+    }
     // Tanpa projectId eksplisit, prioritaskan project milik user yang login
-    // (mis. hasil registrasi) sebelum jatuh ke project pertama.
+    // (mis. hasil registrasi) sebelum jatuh ke project pertama yang diizinkan.
     const project =
-      db.projects.find((p) => p.id === requested) ||
-      db.projects.find((p) => p.createdBy && p.createdBy === req.user.id) ||
-      db.projects[0] ||
+      (requested && accessible.find((p) => p.id === requested)) ||
+      accessible.find((p) => p.createdBy && p.createdBy === req.user.id) ||
+      accessible[0] ||
       null;
     const projectId = project?.id || null;
+    const allowedIds = new Set(accessible.map((p) => p.id));
+    const demo = isDemoUser(req.user);
     const nodes = projectId ? db.nodes.filter((n) => n.projectId === projectId) : [];
     const cables = projectId ? db.cables.filter((c) => c.projectId === projectId) : [];
     const faults = projectId
@@ -317,17 +337,35 @@ router.get(
       ? db.alarms.filter((a) => a.projectId === projectId).slice(0, 150)
       : [];
     const activity = db.activity
-      .filter((a) => !projectId || !a.projectId || a.projectId === projectId)
+      .filter((a) => {
+        if (req.user.role === 'superadmin') return !projectId || !a.projectId || a.projectId === projectId;
+        if (a.userId === req.user.id) return true;
+        return Boolean(a.projectId) && allowedIds.has(a.projectId);
+      })
       .slice(0, 60);
     const license = licenseStatus(db.license, db.nodes.length);
+    const ownerName = (p) => {
+      if (!p.createdBy) return null;
+      return db.users.find((u) => u.id === p.createdBy)?.name || null;
+    };
+    const olts = db.olts
+      .filter((o) => allowedIds.has(o.projectId))
+      .filter((o) => !demo || o.simulated === true)
+      .filter((o) => !projectId || o.projectId === projectId);
+    const routers = demo
+      ? []
+      : db.routers
+          .filter((r) => allowedIds.has(r.projectId))
+          .filter((r) => !projectId || r.projectId === projectId);
     res.json({
       user: publicUser(req.user),
       settings: sanitizeSettings(db.settings, req.user),
       license,
       licenseKey: ['superadmin', 'admin'].includes(req.user.role) ? db.license?.key || null : null,
       basemaps: BASEMAPS,
-      projects: db.projects.map((p) => ({
+      projects: accessible.map((p) => ({
         ...p,
+        ownerName: ownerName(p),
         nodeCount: db.nodes.filter((n) => n.projectId === p.id).length,
         cableCount: db.cables.filter((c) => c.projectId === p.id).length,
       })),
@@ -341,19 +379,19 @@ router.get(
       integrations: {
         genieacs: {
           ...db.cache.genieacs,
-          devices: (db.cache.genieacs.devices || []).slice(0, 300),
-          faults: (db.cache.genieacs.faults || []).slice(0, 50),
+          devices: demo ? [] : (db.cache.genieacs.devices || []).slice(0, 300),
+          faults: demo ? [] : (db.cache.genieacs.faults || []).slice(0, 50),
         },
-        olts: db.olts
-          .filter((o) => !projectId || o.projectId === projectId)
-          .map(publicOlt),
-        routers: db.routers
-          .filter((r) => !projectId || r.projectId === projectId)
-          .map(publicRouter),
-        cacheOlts: db.cache.olts,
-        cacheRouters: db.cache.routers,
+        olts: olts.map(publicOlt),
+        routers: routers.map(publicRouter),
+        cacheOlts: Object.fromEntries(
+          Object.entries(db.cache.olts || {}).filter(([id]) => olts.some((o) => o.id === id))
+        ),
+        cacheRouters: Object.fromEntries(
+          Object.entries(db.cache.routers || {}).filter(([id]) => routers.some((r) => r.id === id))
+        ),
         lastMonitorAt: db.cache.lastMonitorAt,
-        monitorError: db.cache.monitorError,
+        monitorError: demo ? null : db.cache.monitorError,
       },
       serverTime: new Date().toISOString(),
     });
@@ -378,9 +416,14 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const db = getDb();
+    const ownerName = (p) => {
+      if (!p.createdBy) return null;
+      return db.users.find((u) => u.id === p.createdBy)?.name || null;
+    };
     res.json({
-      projects: db.projects.map((p) => ({
+      projects: visibleProjects(db, req.user).map((p) => ({
         ...p,
+        ownerName: ownerName(p),
         nodeCount: db.nodes.filter((n) => n.projectId === p.id).length,
         cableCount: db.cables.filter((c) => c.projectId === p.id).length,
       })),
@@ -394,6 +437,7 @@ router.post(
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
+    if (isDemoUser(req.user)) throw httpError(403, 'Akun demo tidak dapat membuat project baru.');
     requireFields(req.body, ['name']);
     const project = createProject(db, {
       ...req.body,
@@ -421,6 +465,7 @@ router.put(
     const db = getDb();
     const project = db.projects.find((p) => p.id === req.params.id);
     if (!project) throw httpError(404, 'Project tidak ditemukan.');
+    assertProjectAccess(req.user, project);
     if (req.body.name !== undefined) project.name = cleanText(req.body.name, 120) || project.name;
     if (req.body.code !== undefined) project.code = cleanText(req.body.code, 40);
     if (req.body.description !== undefined) project.description = cleanText(req.body.description, 500);
@@ -442,6 +487,10 @@ router.post(
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
+    if (isDemoUser(req.user)) throw httpError(403, 'Akun demo tidak dapat menduplikasi project.');
+    const source = db.projects.find((p) => p.id === req.params.id);
+    if (!source) throw httpError(404, 'Project tidak ditemukan.');
+    assertProjectAccess(req.user, source);
     const project = cloneProject(db, req.params.id, {
       name: cleanText(req.body.name, 120) || undefined,
       code: cleanText(req.body.code, 40) || undefined,
@@ -470,6 +519,7 @@ router.delete(
     if (db.projects.length <= 1) throw httpError(400, 'Minimal satu project harus tersedia.');
     const project = db.projects.find((p) => p.id === req.params.id);
     if (!project) throw httpError(404, 'Project tidak ditemukan.');
+    assertProjectAccess(req.user, project);
     db.projects = db.projects.filter((p) => p.id !== req.params.id);
     db.nodes = db.nodes.filter((n) => n.projectId !== project.id);
     db.cables = db.cables.filter((c) => c.projectId !== project.id);
@@ -544,6 +594,7 @@ router.post(
 router.put(
   '/nodes/:id',
   requireAuth,
+  requireEntityProjectAccess('node'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -570,6 +621,7 @@ router.put(
 router.delete(
   '/nodes/:id',
   requireAuth,
+  requireEntityProjectAccess('node'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -648,6 +700,7 @@ router.post(
 router.put(
   '/cables/:id',
   requireAuth,
+  requireEntityProjectAccess('cable'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -672,6 +725,7 @@ router.put(
 router.delete(
   '/cables/:id',
   requireAuth,
+  requireEntityProjectAccess('cable'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -786,6 +840,7 @@ router.get(
 router.get(
   '/faults/:id',
   requireAuth,
+  requireEntityProjectAccess('fault'),
   asyncHandler(async (req, res) => {
     const db = getDb();
     const fault = db.faults.find((f) => f.id === req.params.id);
@@ -802,6 +857,7 @@ router.get(
 router.post(
   '/faults/:id/repair',
   requireAuth,
+  requireEntityProjectAccess('fault'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -816,6 +872,7 @@ router.post(
 router.delete(
   '/faults/:id',
   requireAuth,
+  requireEntityProjectAccess('fault'),
   requireRole('superadmin', 'admin'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -837,8 +894,8 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const db = getDb();
-    const projectId = projectIdOf(req) || db.projects[0]?.id;
-    let alarms = db.alarms.filter((a) => !projectId || a.projectId === projectId);
+    const project = resolveProject(req, { required: true });
+    let alarms = db.alarms.filter((a) => a.projectId === project.id);
     if (req.query.status === 'active') alarms = alarms.filter((a) => !a.resolved);
     if (req.query.status === 'resolved') alarms = alarms.filter((a) => a.resolved);
     if (req.query.severity) alarms = alarms.filter((a) => a.severity === req.query.severity);
@@ -857,6 +914,8 @@ router.get(
 router.post(
   '/alarms/:id/ack',
   requireAuth,
+  blockDemo,
+  requireEntityProjectAccess('alarm'),
   asyncHandler(async (req, res) => {
     const db = getDb();
     const alarm = db.alarms.find((a) => a.id === req.params.id);
@@ -873,6 +932,7 @@ router.post(
 router.post(
   '/alarms/:id/resolve',
   requireAuth,
+  requireEntityProjectAccess('alarm'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -890,9 +950,11 @@ router.post(
 router.post(
   '/alarms/ack-all',
   requireAuth,
+  blockDemo,
   asyncHandler(async (req, res) => {
     const db = getDb();
-    const projectId = projectIdOf(req) || db.projects[0]?.id;
+    const project = resolveProject(req, { required: true });
+    const projectId = project.id;
     let count = 0;
     for (const alarm of db.alarms) {
       if (alarm.projectId !== projectId || alarm.resolved || alarm.acknowledged) continue;
@@ -912,9 +974,15 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const db = getDb();
-    const projectId = projectIdOf(req);
+    const requested = projectIdOf(req);
+    const allowedIds = new Set(visibleProjects(db, req.user).map((p) => p.id));
     const items = db.activity
-      .filter((a) => !projectId || !a.projectId || a.projectId === projectId)
+      .filter((a) => {
+        if (a.userId === req.user.id) return true;
+        if (!a.projectId) return req.user.role === 'superadmin';
+        if (!allowedIds.has(a.projectId)) return false;
+        return requested ? a.projectId === requested : true;
+      })
       .slice(0, Math.min(300, Number(req.query.limit) || 80));
     res.json({ activity: items });
   })

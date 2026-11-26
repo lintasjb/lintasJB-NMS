@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { getDb, DATA_DIR } from './lib/store.js';
 import { bus } from './lib/events.js';
 import { requireAuth } from './lib/auth.js';
+import { canAccessProject } from './routes/helpers.js';
 import { getLicenseSecret } from './lib/secret.js';
 import { scheduleMonitor, monitorStatus } from './monitors.js';
 import authRoutes from './routes/auth.js';
@@ -44,13 +45,43 @@ app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 // Realtime Server-Sent Events
 // ---------------------------------------------------------------------------
 const sseClients = new Set();
+
+/** Event realtime hanya dikirim ke akun yang boleh melihat project terkait. */
+function eventVisibleTo(user, event) {
+  if (!user || user.role === 'superadmin') return true;
+  const payload = event.payload || {};
+  const db = getDb();
+  if (event.type === 'projects') {
+    if (payload.deleted || !payload.project) return true;
+    return canAccessProject(user, payload.project);
+  }
+  if (event.type === 'settings') return true;
+  if (event.type === 'license' || event.type === 'billing') return true;
+  const projectId =
+    payload.projectId ||
+    payload.project?.id ||
+    payload.node?.projectId ||
+    payload.cable?.projectId ||
+    payload.fault?.projectId ||
+    payload.alarm?.projectId ||
+    payload.router?.projectId ||
+    payload.olt?.projectId;
+  if (!projectId) return true;
+  return canAccessProject(user, db.projects.find((p) => p.id === projectId));
+}
+
 bus.on('event', (event) => {
-  const payload = `event: ${event.type}\ndata: ${JSON.stringify(event.payload)}\n\n`;
-  for (const res of sseClients) {
+  for (const client of sseClients) {
+    if (!eventVisibleTo(client.user, event)) continue;
     try {
-      res.write(payload);
+      const payload =
+        event.type === 'settings' &&
+        !['superadmin', 'admin'].includes(client.user?.role)
+          ? {}
+          : event.payload;
+      client.res.write(`event: ${event.type}\ndata: ${JSON.stringify(payload)}\n\n`);
     } catch {
-      sseClients.delete(res);
+      sseClients.delete(client);
     }
   }
 });
@@ -61,7 +92,8 @@ app.get('/api/events', requireAuth, (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders?.();
-  sseClients.add(res);
+  const client = { res, user: req.user };
+  sseClients.add(client);
   res.write(
     `event: hello\ndata: ${JSON.stringify({
       at: new Date().toISOString(),
@@ -79,7 +111,7 @@ app.get('/api/events', requireAuth, (req, res) => {
   heartbeat.unref?.();
   req.on('close', () => {
     clearInterval(heartbeat);
-    sseClients.delete(res);
+    sseClients.delete(client);
   });
 });
 

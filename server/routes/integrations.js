@@ -14,11 +14,15 @@ import { routerConfig } from '../lib/router-config.js';
 import { oltConfig } from '../lib/olt-config.js';
 import {
   asyncHandler,
+  blockDemo,
   clampNumber,
   cleanText,
   httpError,
+  isDemoUser,
+  requireEntityProjectAccess,
   requireFields,
   resolveProject,
+  visibleProjects,
 } from './helpers.js';
 
 const router = express.Router();
@@ -71,23 +75,41 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const db = getDb();
-    const projectId = String(req.query.projectId || '') || db.projects[0]?.id;
+    const project = resolveProject(req);
+    const projectId = project?.id || null;
+    const demo = isDemoUser(req.user);
+    const allowedIds = new Set(visibleProjects(db, req.user).map((p) => p.id));
+    const olts = db.olts
+      .filter((o) => allowedIds.has(o.projectId))
+      .filter((o) => !demo || o.simulated === true)
+      .filter((o) => !projectId || o.projectId === projectId);
+    const routers = demo
+      ? []
+      : db.routers.filter((r) => allowedIds.has(r.projectId)).filter((r) => !projectId || r.projectId === projectId);
     const g = db.settings.integrations.genieacs;
     res.json({
-      genieacs: {
-        enabled: g.enabled,
-        url: g.url,
-        username: g.username,
-        hasPassword: hasSecret(g.passwordEnc),
-        pollSeconds: g.pollSeconds,
-        offlineAfterSec: g.offlineAfterSec,
-        cache: db.cache.genieacs,
-      },
-      olts: db.olts.filter((o) => !projectId || o.projectId === projectId).map(publicOlt),
-      routers: db.routers.filter((r) => !projectId || r.projectId === projectId).map(publicRouter),
-      cacheOlts: db.cache.olts,
-      cacheRouters: db.cache.routers,
-      monitor: monitorStatus(),
+      genieacs: demo
+        ? { enabled: false, url: '', username: '', hasPassword: false, pollSeconds: 0, cache: { devices: [], faults: [] } }
+        : {
+            enabled: g.enabled,
+            url: g.url,
+            username: g.username,
+            hasPassword: hasSecret(g.passwordEnc),
+            pollSeconds: g.pollSeconds,
+            offlineAfterSec: g.offlineAfterSec,
+            cache: db.cache.genieacs,
+          },
+      olts: olts.map(publicOlt),
+      routers: routers.map(publicRouter),
+      cacheOlts: Object.fromEntries(
+        Object.entries(db.cache.olts || {}).filter(([id]) => olts.some((o) => o.id === id))
+      ),
+      cacheRouters: Object.fromEntries(
+        Object.entries(db.cache.routers || {}).filter(([id]) => routers.some((r) => r.id === id))
+      ),
+      monitor: demo
+        ? { enabled: false, intervalSec: null, lastMonitorAt: null, error: null }
+        : monitorStatus(),
       vendors: VENDORS,
       models: OLT_MODELS,
       license: licenseStatus(db.license, db.nodes.length),
@@ -101,6 +123,7 @@ router.get(
 router.post(
   '/integrations/genieacs/test',
   requireAuth,
+  blockDemo,
   asyncHandler(async (req, res) => {
     const db = getDb();
     const cfg = genieConfig(db.settings, req.body || {});
@@ -118,6 +141,9 @@ router.get(
   '/integrations/genieacs/devices',
   requireAuth,
   asyncHandler(async (req, res) => {
+    if (isDemoUser(req.user)) {
+      return res.json({ devices: [], faults: [], online: 0, offline: 0, total: 0 });
+    }
     const db = getDb();
     const cfg = genieConfig(db.settings);
     if (!cfg.url) throw httpError(400, 'URL GenieACS belum dikonfigurasi di Pengaturan.');
@@ -360,13 +386,17 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const db = getDb();
-    let olts = db.olts;
+    const allowedIds = new Set(visibleProjects(db, req.user).map((p) => p.id));
+    let olts = db.olts.filter((o) => allowedIds.has(o.projectId));
+    if (isDemoUser(req.user)) olts = olts.filter((o) => o.simulated === true);
     if (req.query.projectId) olts = olts.filter((o) => o.projectId === req.query.projectId);
     res.json({
       olts: olts.map(publicOlt),
       vendors: VENDORS,
       models: OLT_MODELS,
-      cache: db.cache.olts,
+      cache: Object.fromEntries(
+        Object.entries(db.cache.olts || {}).filter(([id]) => olts.some((o) => o.id === id))
+      ),
     });
   })
 );
@@ -454,6 +484,7 @@ router.post(
 router.put(
   '/olts/:id',
   requireAuth,
+  requireEntityProjectAccess('olt'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -469,6 +500,7 @@ router.put(
 router.delete(
   '/olts/:id',
   requireAuth,
+  requireEntityProjectAccess('olt'),
   requireRole('superadmin', 'admin'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -512,6 +544,7 @@ router.post(
 router.post(
   '/olts/:id/exec',
   requireAuth,
+  requireEntityProjectAccess('olt'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -542,6 +575,8 @@ router.post(
 router.post(
   '/olts/:id/test',
   requireAuth,
+  blockDemo,
+  requireEntityProjectAccess('olt'),
   asyncHandler(async (req, res) => {
     const db = getDb();
     const olt = db.olts.find((o) => o.id === req.params.id);
@@ -558,6 +593,7 @@ router.post(
 router.get(
   '/olts/:id/onus',
   requireAuth,
+  requireEntityProjectAccess('olt'),
   asyncHandler(async (req, res) => {
     const db = getDb();
     const olt = db.olts.find((o) => o.id === req.params.id);
@@ -604,6 +640,7 @@ router.get(
 router.post(
   '/olts/:id/sync',
   requireAuth,
+  requireEntityProjectAccess('olt'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -764,9 +801,17 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const db = getDb();
-    let routers = db.routers;
+    const allowedIds = new Set(visibleProjects(db, req.user).map((p) => p.id));
+    let routers = isDemoUser(req.user)
+      ? []
+      : db.routers.filter((r) => allowedIds.has(r.projectId));
     if (req.query.projectId) routers = routers.filter((r) => r.projectId === req.query.projectId);
-    res.json({ routers: routers.map(publicRouter), cache: db.cache.routers });
+    res.json({
+      routers: routers.map(publicRouter),
+      cache: Object.fromEntries(
+        Object.entries(db.cache.routers || {}).filter(([id]) => routers.some((r) => r.id === id))
+      ),
+    });
   })
 );
 
@@ -798,6 +843,7 @@ router.post(
 router.put(
   '/routers/:id',
   requireAuth,
+  requireEntityProjectAccess('router'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -813,6 +859,7 @@ router.put(
 router.delete(
   '/routers/:id',
   requireAuth,
+  requireEntityProjectAccess('router'),
   requireRole('superadmin', 'admin'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -858,6 +905,8 @@ router.post(
 router.post(
   '/routers/:id/test',
   requireAuth,
+  blockDemo,
+  requireEntityProjectAccess('router'),
   asyncHandler(async (req, res) => {
     const db = getDb();
     const router = db.routers.find((r) => r.id === req.params.id);
@@ -895,6 +944,7 @@ router.post(
 router.get(
   '/routers/:id/interfaces',
   requireAuth,
+  requireEntityProjectAccess('router'),
   asyncHandler(async (req, res) => {
     const db = getDb();
     const router = db.routers.find((r) => r.id === req.params.id);
@@ -925,6 +975,7 @@ router.get(
 router.post(
   '/routers/:id/sync',
   requireAuth,
+  requireEntityProjectAccess('router'),
   requireRole('superadmin', 'admin', 'operator'),
   asyncHandler(async (req, res) => {
     const db = getDb();
@@ -973,6 +1024,9 @@ router.get(
   '/monitor/status',
   requireAuth,
   asyncHandler(async (req, res) => {
+    if (isDemoUser(req.user)) {
+      return res.json({ enabled: false, intervalSec: null, lastMonitorAt: null, error: null });
+    }
     res.json(monitorStatus());
   })
 );

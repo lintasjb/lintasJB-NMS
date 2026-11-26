@@ -65,6 +65,8 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
   kontak, kredit, pintasan keyboard, dan tombol salin info sistem.
 - Semua kolom input memakai tema gelap yang konsisten (termasuk autofill Chrome/Edge).
 - Manajemen pengguna (superadmin/admin/operator/viewer), profil, dan ganti password.
+- **Pemisahan project per akun**: akun hanya melihat project buatannya; superadmin melihat
+  seluruh project; akun demo khusus hanya project simulasi bersifat hanya-baca.
 - **Admin Panel** (`#/admin`) khusus superadmin/admin: ringkasan sistem, pengguna & role,
   project, log aktivitas, integrasi & lisensi, harga paket Rupiah, dan unduh backup.
 - Audit log aktivitas dan riwayat import/export.
@@ -127,13 +129,26 @@ npm run dev     # node --watch, reload otomatis saat file server berubah
 
 ## Akun demo
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Superadmin | `admin@lintasjb.id` | `Admin123!` |
-| Operator | `operator@lintasjb.id` | `Operator123!` |
+| Role | Email | Password | Keterangan |
+| --- | --- | --- | --- |
+| Superadmin | `admin@lintasjb.id` | `Admin123!` | Melihat seluruh project |
+| Operator | `operator@lintasjb.id` | `Operator123!` | Hanya project yang dibuatnya sendiri |
+| Demo | `demo@lintasjb.id` | `Demo123!` | Hanya project simulasi, **hanya-baca** |
 
-Data demo berisi 2 project di koridor Jember–Banyuwangi (20 node, 17 kabel, 2 OLT HiOSO,
-2 router MikroTik). Registrasi baru otomatis membuat project sendiri dan dapat menyalin data demo.
+Tombol **Isi akun demo / Login demo** di halaman masuk memakai akun demo (`viewer`).
+Akun demo hanya melihat project bertanda simulasi, hanya perangkat mode simulasi, dan
+semua aksi tulis ditolak (`403`). Data demo berisi 2 project di koridor Jember–Banyuwangi
+(20 node, 17 kabel, 2 OLT HiOSO, 2 router MikroTik). Registrasi baru otomatis membuat
+project sendiri dan dapat menyalin data demo.
+
+### Visibilitas project
+
+- **Superadmin** melihat seluruh project, termasuk project milik akun lain.
+- **Admin** dan **operator** hanya melihat project yang mereka buat sendiri (`createdBy`).
+- **Akun demo** hanya melihat project simulasi (`demo: true`) dan perangkat `simulated`.
+- Project milik akun lain tidak bisa diakses lewat `?projectId=` maupun endpoint berbasis
+  `:id` (node, kabel, gangguan, alarm, OLT, router): server mengembalikan `403`.
+- Event realtime (SSE) juga difilter per akun agar data project lain tidak ikut terkirim.
 
 ---
 
@@ -359,6 +374,9 @@ lintasjb-nms/
 | `GET` | `/api/health` | Health check publik |
 
 Semua endpoint selain health/login/register memerlukan header `Authorization: Bearer <token>`.
+Untuk akun non-superadmin, endpoint project dan data (node, kabel, fault, alarm, OLT, router)
+hanya mengembalikan konten project milik sendiri; akun demo memakai project simulasi dan
+menolak semua operasi tulis dengan `403`.
 
 ---
 

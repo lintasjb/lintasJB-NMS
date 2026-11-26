@@ -44,6 +44,7 @@ export function publicUser(user) {
     company: user.company,
     phone: user.phone,
     status: user.status,
+    demo: Boolean(user.demo),
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
   };

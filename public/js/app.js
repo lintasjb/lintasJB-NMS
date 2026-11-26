@@ -144,7 +144,15 @@ async function enterApp({ projectId = '' } = {}) {
 }
 
 async function loadBootstrap() {
-  const data = await api.bootstrap(api.getProjectId());
+  let data;
+  try {
+    data = await api.bootstrap(api.getProjectId());
+  } catch (err) {
+    // Project tersimpan dari akun sebelumnya tidak boleh mengunci akun baru.
+    if (err?.status !== 403 || !api.getProjectId()) throw err;
+    api.setProjectId('');
+    data = await api.bootstrap('');
+  }
   applyBootstrap(data);
   if (data.project?.id) api.setProjectId(data.project.id);
   applyBranding();
@@ -214,7 +222,8 @@ function updateShell() {
 
   const user = state.user || {};
   for (const el of document.querySelectorAll('[data-user-name]')) el.textContent = user.name || 'Pengguna';
-  for (const el of document.querySelectorAll('[data-user-role]')) el.textContent = ROLE_LABEL[user.role] || user.role || 'Operator';
+  const roleText = `${ROLE_LABEL[user.role] || user.role || 'Operator'}${user.demo ? ' · Demo (hanya baca)' : ''}`;
+  for (const el of document.querySelectorAll('[data-user-role]')) el.textContent = roleText;
   for (const el of document.querySelectorAll('[data-user-initials]')) el.textContent = fmt.initials(user.name || 'NA');
 
   const canAdmin = ['superadmin', 'admin'].includes(user.role);
@@ -713,17 +722,17 @@ function wireAuth() {
   authScreen.querySelector('[data-demo-fill]')?.addEventListener('click', () => {
     const form = authScreen.querySelector('#login-form');
     if (!form) return;
-    form.querySelector('[name="email"]').value = 'admin@lintasjb.id';
-    form.querySelector('[name="password"]').value = 'Admin123!';
+    form.querySelector('[name="email"]').value = 'demo@lintasjb.id';
+    form.querySelector('[name="password"]').value = 'Demo123!';
     showAuthError(form, '');
-    toast.info('Akun demo diisi', 'Klik "Masuk ke NOC" untuk melanjutkan.');
+    toast.info('Akun demo diisi', 'Demo hanya menampilkan project simulasi bersifat hanya-baca.');
   });
 
   authScreen.querySelector('[data-demo-login]')?.addEventListener('click', () => {
     const form = authScreen.querySelector('#login-form');
     if (!form) return;
-    form.querySelector('[name="email"]').value = 'admin@lintasjb.id';
-    form.querySelector('[name="password"]').value = 'Admin123!';
+    form.querySelector('[name="email"]').value = 'demo@lintasjb.id';
+    form.querySelector('[name="password"]').value = 'Demo123!';
     form.requestSubmit();
   });
 

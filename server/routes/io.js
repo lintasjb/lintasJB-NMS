@@ -9,7 +9,7 @@ import { licenseStatus } from '../lib/license.js';
 import { pushActivity, uid } from '../lib/faults.js';
 import { emitEvent } from '../lib/events.js';
 import { BASEMAPS } from '../basemaps.js';
-import { asyncHandler, cleanText, httpError, requireFields, resolveProject } from './helpers.js';
+import { asyncHandler, cleanText, httpError, requireFields, resolveProject, visibleProjects } from './helpers.js';
 
 const router = express.Router();
 const upload = multer({
@@ -751,9 +751,15 @@ router.get(
   asyncHandler(async (req, res) => {
     const db = getDb();
     const projectId = String(req.query.projectId || '');
+    const allowedIds = new Set(visibleProjects(db, req.user).map((p) => p.id));
     const items = db.activity
       .filter((a) => a.action.startsWith('io.'))
-      .filter((a) => !projectId || a.projectId === projectId)
+      .filter((a) => {
+        if (a.userId === req.user.id) return true;
+        if (!a.projectId) return req.user.role === 'superadmin';
+        if (!allowedIds.has(a.projectId)) return false;
+        return projectId ? a.projectId === projectId : true;
+      })
       .slice(0, 60);
     res.json({ history: items });
   })

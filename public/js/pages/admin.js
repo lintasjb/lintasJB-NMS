@@ -510,7 +510,7 @@ function openResetPassword(user, onDone) {
 
 async function loadProjects(el) {
   el.innerHTML = `<section class="settings-section">
-    <div class="settings-section__head"><h3>${icon('git-branch')} Manajemen project</h3><p>Buka, duplikasi, buat, atau hapus project peta jaringan.</p></div>
+    <div class="settings-section__head"><h3>${icon('git-branch')} Manajemen project</h3><p>Buka, duplikasi, buat, atau hapus project peta jaringan. Superadmin melihat seluruh project; admin hanya project miliknya sendiri.</p></div>
     <div class="settings-section__body">
       <div id="ap-list">${empty('clock', 'Memuat project…')}</div>
       <div class="divider"></div>
@@ -538,7 +538,7 @@ async function loadProjects(el) {
       <span class="cell-icon">${icon('git-branch')}</span>
       <div class="user-row__info">
         <b>${esc(p.name)} ${p.id === state.projectId ? '<span class="pill pill--accent">DIBUKA</span>' : ''}</b>
-        <span>${esc(p.code || p.id)} · ${fmt.num(p.nodeCount || 0)} node · ${fmt.num(p.cableCount || 0)} kabel · ${esc(p.status || 'active')}</span>
+        <span>${esc(p.code || p.id)} · ${fmt.num(p.nodeCount || 0)} node · ${fmt.num(p.cableCount || 0)} kabel${p.ownerName ? ` · ${esc(p.ownerName)}` : ''} · ${esc(p.status || 'active')}</span>
       </div>
       <button class="btn btn-xs btn-soft" data-project-open="${esc(p.id)}">Buka</button>
       <button class="icon-btn" data-project-dup="${esc(p.id)}" title="Duplikasi project">${icon('copy')}</button>

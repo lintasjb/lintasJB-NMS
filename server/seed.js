@@ -92,6 +92,7 @@ function cable(id, projectId, name, code, type, fromNodeId, toNodeId, path, extr
 export function buildSeed() {
   const adminHash = bcrypt.hashSync('Admin123!', 10);
   const operatorHash = bcrypt.hashSync('Operator123!', 10);
+  const demoHash = bcrypt.hashSync('Demo123!', 10);
   const trial = createTrialLicense('PT Lintas Jaringan Bersama');
 
   const nodes = [
@@ -411,6 +412,20 @@ export function buildSeed() {
         createdAt: daysAgo(20),
         lastLoginAt: null,
       },
+      {
+        id: 'usr_demo',
+        name: 'Akun Demo',
+        username: 'demo',
+        email: 'demo@lintasjb.id',
+        passwordHash: demoHash,
+        role: 'viewer',
+        company: 'lintasJB Demo',
+        phone: '',
+        status: 'active',
+        demo: true,
+        createdAt: daysAgo(10),
+        lastLoginAt: null,
+      },
     ],
     projects: [
       {
@@ -422,6 +437,7 @@ export function buildSeed() {
         zoom: 10,
         status: 'active',
         demo: true,
+        createdBy: 'usr_demo',
         createdAt: daysAgo(30),
         updatedAt: now(),
       },

@@ -14,7 +14,7 @@ import { emitEvent } from '../lib/events.js';
 import { DATA_DIR } from '../lib/secret.js';
 import { monitorStatus } from '../monitors.js';
 import { normalizePricing, pricingOf } from '../lib/pricing.js';
-import { asyncHandler, cleanText, httpError } from './helpers.js';
+import { asyncHandler, cleanText, httpError, visibleProjects } from './helpers.js';
 
 const router = express.Router();
 const ADMIN_ROLES = ['superadmin', 'admin'];
@@ -52,6 +52,13 @@ router.get(
     const memory = process.memoryUsage();
     const genieacs = db.settings.integrations?.genieacs || {};
     const cache = db.cache?.genieacs || {};
+    const allowedIds = new Set(visibleProjects(db, req.user).map((p) => p.id));
+    const isSuper = req.user.role === 'superadmin';
+    const visibleActivity = (db.activity || []).filter((a) => {
+      if (isSuper) return true;
+      if (a.userId === req.user.id) return true;
+      return Boolean(a.projectId) && allowedIds.has(a.projectId);
+    });
 
     res.json({
       app: {
@@ -66,11 +73,11 @@ router.get(
       counts: {
         users: db.users.length,
         activeUsers: db.users.filter((u) => u.status !== 'disabled').length,
-        projects: db.projects.length,
-        nodes: db.nodes.length,
-        cables: db.cables.length,
-        faults: (db.faults || []).filter((f) => f.status !== 'resolved').length,
-        alarms: (db.alarms || []).filter((a) => !a.acknowledged).length,
+        projects: allowedIds.size,
+        nodes: db.nodes.filter((n) => allowedIds.has(n.projectId)).length,
+        cables: db.cables.filter((c) => allowedIds.has(c.projectId)).length,
+        faults: (db.faults || []).filter((f) => !f.resolved && allowedIds.has(f.projectId)).length,
+        alarms: (db.alarms || []).filter((a) => !a.acknowledged && allowedIds.has(a.projectId)).length,
         orders: (db.orders || []).length,
       },
       monitor: monitorStatus(),
@@ -90,7 +97,9 @@ router.get(
           error: cache.error || null,
           devices: (cache.devices || []).length,
         },
-        olts: (db.olts || []).map((o) => ({
+        olts: (db.olts || [])
+          .filter((o) => allowedIds.has(o.projectId))
+          .map((o) => ({
           id: o.id,
           name: o.name || o.host || o.id,
           vendor: o.vendor || '-',
@@ -100,7 +109,9 @@ router.get(
           status: o.status || o.lastStatus || null,
           lastSyncAt: o.lastSyncAt || null,
         })),
-        routers: (db.routers || []).map((r) => ({
+        routers: (db.routers || [])
+          .filter((r) => allowedIds.has(r.projectId))
+          .map((r) => ({
           id: r.id,
           name: r.name || r.host || r.id,
           host: r.host || '-',
@@ -109,7 +120,7 @@ router.get(
           lastSyncAt: r.lastSyncAt || null,
         })),
       },
-      recent: (db.activity || []).slice(0, 8),
+      recent: visibleActivity.slice(0, 8),
     });
   })
 );
@@ -120,7 +131,13 @@ router.get(
   requireRole(ADMIN_ROLES),
   asyncHandler(async (req, res) => {
     const db = getDb();
-    const all = db.activity || [];
+    const allowedIds = new Set(visibleProjects(db, req.user).map((p) => p.id));
+    const isSuper = req.user.role === 'superadmin';
+    const all = (db.activity || []).filter((a) => {
+      if (isSuper) return true;
+      if (a.userId === req.user.id) return true;
+      return Boolean(a.projectId) && allowedIds.has(a.projectId);
+    });
     const q = cleanText(req.query.q, 120).toLowerCase();
     const action = cleanText(req.query.action, 80);
     const userId = cleanText(req.query.userId, 80);

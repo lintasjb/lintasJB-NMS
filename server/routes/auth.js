@@ -153,7 +153,7 @@ router.post(
     pushActivity(db, {
       userId: user.id,
       userName: user.name,
-      projectId: db.projects[0]?.id,
+      projectId: db.projects.find((p) => p.createdBy === user.id)?.id || null,
       action: 'auth.login',
       detail: `${user.name} login ke lintasJB NMS.`,
     });
@@ -232,6 +232,7 @@ router.post(
     const email = cleanText(req.body.email, 120).toLowerCase();
     const password = String(req.body.password || '');
     const role = ROLES.includes(req.body.role) ? req.body.role : 'operator';
+    const demo = req.user.role === 'superadmin' ? Boolean(req.body.demo) : false;
     requireFields({ name, email, password }, ['name', 'email', 'password']);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw httpError(400, 'Format email tidak valid.');
     if (db.users.some((u) => u.email.toLowerCase() === email)) {
@@ -251,6 +252,7 @@ router.post(
       company: cleanText(req.body.company, 120) || 'Personal',
       phone: cleanText(req.body.phone, 30),
       status: 'active',
+      demo,
       createdAt: new Date().toISOString(),
       lastLoginAt: null,
     };
@@ -259,7 +261,7 @@ router.post(
       userId: req.user.id,
       userName: req.user.name,
       action: 'user.create',
-      detail: `Menambahkan pengguna ${user.name} (${user.email}) dengan role ${user.role}.`,
+      detail: `Menambahkan pengguna ${user.name} (${user.email}) dengan role ${user.role}${demo ? ' (akun demo)' : ''}.`,
     });
     save();
     res.status(201).json({ user: publicUser(user) });
@@ -311,6 +313,9 @@ router.put(
         throw httpError(400, 'Tidak dapat menurunkan role akun sendiri.');
       }
       user.role = req.body.role;
+    }
+    if (req.body.demo !== undefined && req.user.role === 'superadmin') {
+      user.demo = Boolean(req.body.demo);
     }
     if (req.body.status !== undefined) {
       if (!['active', 'disabled'].includes(req.body.status)) throw httpError(400, 'Status tidak valid.');
