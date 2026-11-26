@@ -290,6 +290,8 @@ async function renderRoute() {
   const { view, params } = parseHash();
   const meta = ROUTES[view] || ROUTES.dashboard;
   const loader = PAGE_LOADERS[view] || PAGE_LOADERS.dashboard;
+  const sameView = view === currentPage;
+  const scrollBefore = sameView ? (liveView?.scrollTop || 0) : 0;
 
   if (view === currentPage) runCleanup();
   else {
@@ -322,6 +324,7 @@ async function renderRoute() {
     if (seq !== renderSeq) return;
     liveView.innerHTML = '';
     await mod.render(liveView, params);
+    if (sameView && liveView) liveView.scrollTop = scrollBefore;
   } catch (err) {
     if (seq !== renderSeq) return;
     console.error('[route]', view, err);

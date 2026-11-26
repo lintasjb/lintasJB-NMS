@@ -1185,6 +1185,7 @@ async function bindLicense(content) {
   const activateForm = content.querySelector('#form-license');
   activateForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    document.activeElement?.blur?.();
     const key = activateForm.querySelector('[name="key"]').value.trim();
     if (!key) {
       toast.warn('Kunci kosong', 'Tempel kunci lisensi terlebih dahulu.');
@@ -1207,6 +1208,7 @@ async function bindLicense(content) {
   const generateForm = content.querySelector('#form-license-generate');
   generateForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    document.activeElement?.blur?.();
     const values = formValues(generateForm);
     try {
       const res = await api.post('/license/generate', {
@@ -1231,7 +1233,10 @@ async function bindLicense(content) {
         resultEl.querySelector('[data-copy-generated]')?.addEventListener('click', () => copyText(res.key));
       }
       toast.success('Lisensi dibuat', res.message || 'Kunci lisensi berhasil dibuat.');
-      if (res.active && !values.customerId) requestRefresh();
+      if (res.active && !values.customerId) {
+        state.license = res.active;
+        state.licenseKey = res.key;
+      }
     } catch (err) {
       errorToast(err);
     }
