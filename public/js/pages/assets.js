@@ -11,6 +11,8 @@ const PAGE_SIZE = 60;
 export async function render(view) {
   let page = 1;
   const filters = { q: '', type: '', status: '' };
+  const selected = new Set();
+  const canWrite = ['superadmin', 'admin', 'operator'].includes(state.user?.role) && !state.user?.demo;
 
   view.innerHTML = `<div class="page">
     <div class="page-toolbar">
@@ -43,9 +45,11 @@ export async function render(view) {
     </div>
 
     <section class="panel table-panel">
+      ${canWrite ? `<div class="bulk-bar hidden" id="bulk-bar"><b id="bulk-count">0 node dipilih</b><span class="grow"></span><button type="button" class="btn btn-xs btn-soft" data-bulk-clear>Batalkan pilihan</button><button type="button" class="btn btn-xs btn-danger" data-bulk-delete>${icon('trash')} Hapus dipilih</button></div>` : ''}
       <div class="table-wrap">
         <table class="data-table">
           <thead><tr>
+            ${canWrite ? '<th class="col-check"><input type="checkbox" data-check-all title="Pilih semua di halaman ini" /></th>' : ''}
             <th>Node</th><th>Tipe</th><th>Status</th><th>Parent</th><th>Koordinat</th><th>Port</th><th>Kabel</th><th>Update</th><th></th>
           </tr></thead>
           <tbody id="asset-rows"></tbody>
@@ -82,7 +86,7 @@ export async function render(view) {
     pageInfo.textContent = list.length ? `Menampilkan ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, list.length)} dari ${list.length}` : 'Tidak ada data';
 
     if (!slice.length) {
-      rows.innerHTML = `<tr><td colspan="9">${empty('search', 'Node tidak ditemukan', 'Ubah kata kunci atau filter tipe/status.')}</td></tr>`;
+      rows.innerHTML = `<tr><td colspan="${canWrite ? 10 : 9}">${empty('search', 'Node tidak ditemukan', 'Ubah kata kunci atau filter tipe/status.')}</td></tr>`;
       return;
     }
 
@@ -91,6 +95,7 @@ export async function render(view) {
       const parent = node.parentId ? nodeById(node.parentId) : null;
       const cableCount = state.cables.filter((c) => c.fromNodeId === node.id || c.toNodeId === node.id).length;
       return `<tr data-row="${esc(node.id)}">
+        ${canWrite ? `<td class="col-check"><input type="checkbox" data-node-check="${esc(node.id)}" ${selected.has(node.id) ? 'checked' : ''} title="Pilih node" /></td>` : ''}
         <td><div class="cell-main"><span class="cell-icon" style="color:${meta.color}">${icon(meta.icon)}</span><div><b>${esc(node.name)}</b><small class="mono">${esc(node.code || '—')}</small></div></div></td>
         <td><span class="pill" style="border-color:${meta.color}44;color:${meta.color}">${esc(meta.short)}</span></td>
         <td>${statusPill(node.status)}</td>
@@ -115,7 +120,40 @@ export async function render(view) {
           <button class="btn btn-xs btn-soft" data-page="next" ${page === totalPages ? 'disabled' : ''}>Next</button>
         </span>`;
     }
+    updateBulk();
   }
+
+  function updateBulk() {
+    const bar = view.querySelector('#bulk-bar');
+    if (!bar) return;
+    bar.classList.toggle('hidden', selected.size === 0);
+    const count = view.querySelector('#bulk-count');
+    if (count) count.textContent = `${fmt.num(selected.size)} node dipilih`;
+    const all = view.querySelector('[data-check-all]');
+    if (all) {
+      const ids = filtered().slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((n) => n.id);
+      all.checked = ids.length > 0 && ids.every((id) => selected.has(id));
+    }
+  }
+
+  view.addEventListener('change', (event) => {
+    if (event.target.matches('[data-node-check]')) {
+      const id = event.target.dataset.nodeCheck;
+      if (event.target.checked) selected.add(id);
+      else selected.delete(id);
+      updateBulk();
+      return;
+    }
+    if (event.target.matches('[data-check-all]')) {
+      const ids = filtered().slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((n) => n.id);
+      for (const id of ids) {
+        if (event.target.checked) selected.add(id);
+        else selected.delete(id);
+      }
+      renderRows();
+      updateBulk();
+    }
+  });
 
   view.querySelector('#type-chips').addEventListener('click', (event) => {
     const chip = event.target.closest('[data-type]');
@@ -139,6 +177,31 @@ export async function render(view) {
   });
 
   view.addEventListener('click', async (event) => {
+    if (event.target.closest('[data-bulk-clear]')) {
+      selected.clear();
+      renderRows();
+      updateBulk();
+      return;
+    }
+    const bulk = event.target.closest('[data-bulk-delete]');
+    if (bulk) {
+      const ids = [...selected];
+      if (!ids.length) return;
+      const ok = await confirmDialog({
+        title: `Hapus ${ids.length} node?`,
+        message: `Sebanyak ${fmt.num(ids.length)} node beserta kabel dan alarm terkait akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`,
+        confirmText: `Hapus ${ids.length} node`,
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        const res = await api.post('/nodes/bulk-delete', { ids });
+        toast.success('Node dihapus', `${res.deleted} node dan ${res.deletedCables} kabel dihapus.`);
+        selected.clear();
+        requestRefresh();
+      } catch (err) { errorToast(err); }
+      return;
+    }
     const pg = event.target.closest('[data-page]');
     if (pg) {
       const list = filtered();
@@ -169,7 +232,9 @@ export async function render(view) {
       if (!ok) return;
       try {
         await api.del(`/nodes/${node.id}`);
+        selected.delete(node.id);
         toast.success('Node dihapus', `${node.name} berhasil dihapus.`);
+        updateBulk();
         requestRefresh();
       } catch (err) { errorToast(err); }
     }

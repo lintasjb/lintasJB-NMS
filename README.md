@@ -56,6 +56,8 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
 - **Perangkat**: GenieACS NBI (TR-069/CWMP), OLT HiOSO (simulasi / HTTP web UI / SNMP), dan
   MikroTik RouterOS (REST API v7 atau API native, termasuk self-signed TLS).
 - **Manajemen project** multi-tenant: setiap project punya node, kabel, gangguan, dan riwayat sendiri.
+- **Hapus massal node** di Aset Jaringan: centang beberapa node (atau seluruh halaman) lalu hapus
+  sekaligus. Kabel, gangguan, dan alarm terkait ikut dibersihkan. Hanya superadmin/admin/operator.
 
 ### Data & administrasi
 - Import/export **KML, KMZ, GeoJSON, CSV** (node dan kabel) dengan pratinjau dry-run.
@@ -357,6 +359,7 @@ lintasjb-nms/
 | `POST` | `/api/auth/register` | Registrasi + project baru |
 | `GET` | `/api/bootstrap?projectId=` | Semua data awal aplikasi |
 | `GET/POST` | `/api/nodes`, `/api/cables` | CRUD aset |
+| `POST` | `/api/nodes/bulk-delete` | Hapus banyak node sekaligus (`ids`: array) |
 | `POST` | `/api/faults/locate` | POSGIS: jarak/rasio → fault |
 | `POST` | `/api/faults/:id/repair` | Pulihkan gangguan |
 | `POST` | `/api/alarms/:id/ack` | Acknowledge alarm |

@@ -618,6 +618,59 @@ router.put(
   })
 );
 
+/** Hapus beberapa node sekaligus beserta kabel/fault/alarm terkait. */
+function removeNodes(db, nodes) {
+  const ids = new Set(nodes.map((n) => n.id));
+  const connected = db.cables.filter((c) => ids.has(c.fromNodeId) || ids.has(c.toNodeId));
+  const now = new Date().toISOString();
+  for (const cable of connected) {
+    const fault = db.faults.find((f) => f.cableId === cable.id && f.status === 'active');
+    if (fault) {
+      fault.status = 'resolved';
+      fault.resolvedAt = now;
+      fault.notes = 'Kabel dihapus bersama node.';
+    }
+  }
+  db.cables = db.cables.filter((c) => !ids.has(c.fromNodeId) && !ids.has(c.toNodeId));
+  for (const child of db.nodes) if (ids.has(child.parentId)) child.parentId = null;
+  for (const alarm of db.alarms) if (ids.has(alarm.nodeId)) alarm.nodeId = null;
+  db.nodes = db.nodes.filter((n) => !ids.has(n.id));
+  return connected;
+}
+
+router.post(
+  '/nodes/bulk-delete',
+  requireAuth,
+  requireRole('superadmin', 'admin', 'operator'),
+  asyncHandler(async (req, res) => {
+    const db = getDb();
+    const raw = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const ids = [...new Set(raw.map(String))];
+    if (!ids.length) throw httpError(400, 'Pilih minimal satu node.');
+    if (ids.length > 200) throw httpError(400, 'Maksimal 200 node sekali hapus.');
+    const nodes = db.nodes.filter((n) => ids.includes(n.id));
+    if (!nodes.length) throw httpError(404, 'Node tidak ditemukan.');
+    for (const node of nodes) {
+      const project = db.projects.find((p) => p.id === node.projectId);
+      if (!canAccessProject(req.user, project)) {
+        throw httpError(403, 'Anda tidak memiliki akses ke sebagian node yang dipilih.');
+      }
+    }
+    const connected = removeNodes(db, nodes);
+    const names = nodes.slice(0, 5).map((n) => n.name).join(', ');
+    pushActivity(db, {
+      userId: req.user.id,
+      userName: req.user.name,
+      projectId: nodes[0].projectId,
+      action: 'node.delete.bulk',
+      detail: `Menghapus ${nodes.length} node (${names}${nodes.length > 5 ? ' …' : ''}) dan ${connected.length} kabel terkait.`,
+    });
+    save();
+    emitEvent('node:changed', { deleted: nodes.map((n) => n.id), action: 'delete' });
+    res.json({ ok: true, deleted: nodes.length, deletedCables: connected.length });
+  })
+);
+
 router.delete(
   '/nodes/:id',
   requireAuth,
@@ -627,22 +680,7 @@ router.delete(
     const db = getDb();
     const node = db.nodes.find((n) => n.id === req.params.id);
     if (!node) throw httpError(404, 'Node tidak ditemukan.');
-    const connected = db.cables.filter(
-      (c) => c.fromNodeId === node.id || c.toNodeId === node.id
-    );
-    const now = new Date().toISOString();
-    for (const cable of connected) {
-      const fault = db.faults.find((f) => f.cableId === cable.id && f.status === 'active');
-      if (fault) {
-        fault.status = 'resolved';
-        fault.resolvedAt = now;
-        fault.notes = 'Kabel dihapus bersama node.';
-      }
-    }
-    db.cables = db.cables.filter((c) => c.fromNodeId !== node.id && c.toNodeId !== node.id);
-    for (const child of db.nodes) if (child.parentId === node.id) child.parentId = null;
-    for (const alarm of db.alarms) if (alarm.nodeId === node.id) alarm.nodeId = null;
-    db.nodes = db.nodes.filter((n) => n.id !== node.id);
+    const connected = removeNodes(db, [node]);
     pushActivity(db, {
       userId: req.user.id,
       userName: req.user.name,

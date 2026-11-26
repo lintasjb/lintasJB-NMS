@@ -1489,3 +1489,13 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
 .admin-secret > p { font-size: 10.5px; line-height: 1.55; }
 .admin-secret__value { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--bg-2); }
 .admin-secret__value code { flex: 1; font-family: var(--mono); font-size: 13px; color: var(--accent); word-break: break-all; }
+
+/* Bulk select — Aset Jaringan */
+.col-check { width: 34px; }
+.col-check input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+.bulk-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 9px 14px; border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, rgba(34,211,238,.09), rgba(34,211,238,.02));
+}
+.bulk-bar b { font-size: 11px; color: var(--accent); }
