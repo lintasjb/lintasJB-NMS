@@ -42,6 +42,8 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
   `laser`, `rainbow`, `pulse`, `dash`, `glow`, `breath`, `static`, dan `none`.
 - **Node** POP site, router, server, OLT, ODC, ODP, ONT, dan joint closure. Form node memiliki
   kolom pencarian **Parent / uplink** (nama atau kode) agar mudah memilih dari ratusan node.
+- **Pindahkan titik node** langsung di Live Map: aktifkan tombol *Pindahkan titik node*, lalu seret
+  marker ke lokasi baru. Koordinat disimpan otomatis (khusus superadmin/admin/operator).
 - **Rute kabel** dengan gambar polyline di peta, panjang geodesic otomatis, jumlah core, dan utilisasi.
   Menggambar rute mendukung banyak titik lewat tap di layar sentuh; geser jari tetap dipakai untuk
   menggeser peta dan tidak menambah titik.

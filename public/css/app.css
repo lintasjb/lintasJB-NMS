@@ -1523,3 +1523,8 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
 
 /* Tap surface untuk menggambar rute kabel di layar sentuh */
 .draw-tap-surface { position: absolute; inset: 0; z-index: 690; touch-action: none; cursor: crosshair; }
+
+/* Mode pindahkan titik node */
+.leaflet-container.mode-move-node .node-icon-wrap { cursor: grab; }
+.leaflet-container.mode-move-node .leaflet-marker-draggable .node-icon-wrap { cursor: move; }
+.leaflet-container.mode-move-node .node-marker { outline: 1px dashed rgba(34,211,238,.5); outline-offset: 3px; border-radius: 8px; }

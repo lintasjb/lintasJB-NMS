@@ -96,6 +96,7 @@ export function createMap(container, options = {}) {
   let searchMarker = null;
   let routePickState = null;
   let routeEditState = null;
+  let moveState = null;
 
   function applyContainerClasses() {
     container.classList.toggle('no-labels', !state.filters.labels);
@@ -206,6 +207,7 @@ export function createMap(container, options = {}) {
         riseOnHover: true,
         zIndexOffset: node.type === 'pop' ? 900 : node.type === 'olt' ? 800 : node.type === 'ont' ? 100 : 400,
         pane: 'markerPane',
+        draggable: Boolean(moveState),
       });
       marker.bindPopup(nodePopup(node), { closeButton: true, offset: [0, -12], maxWidth: 280 });
       marker.on('popupopen', (event) => {
@@ -217,8 +219,14 @@ export function createMap(container, options = {}) {
         });
       });
       marker.on('click', () => {
-        if (!pickState && !drawState && !routePickState && !routeEditState) marker.openPopup();
+        if (!pickState && !drawState && !routePickState && !routeEditState && !moveState) marker.openPopup();
       });
+      marker.on('dragend', () => {
+        if (!moveState) return;
+        const ll = marker.getLatLng();
+        opts.onNodeMove?.(node.id, { lat: ll.lat, lng: ll.lng });
+      });
+      if (moveState) marker.dragging?.enable();
       marker.addTo(layers.nodes);
     }
   }
@@ -536,6 +544,7 @@ export function createMap(container, options = {}) {
   function startEditRoute(cable, { onChange, onSave, onCancel } = {}) {
     cancelRoutePick({ silent: true });
     cancelEditRoute({ silent: true });
+    cancelMoveNode({ silent: true });
     cancelPick({ silent: true });
     cancelDrawCable({ silent: true });
     const clone = (cable.path || []).map((p) => [Number(p[0]), Number(p[1])]);
@@ -734,6 +743,7 @@ export function createMap(container, options = {}) {
     cancelPick();
     cancelRoutePick({ silent: true });
     cancelEditRoute({ silent: true });
+    cancelMoveNode({ silent: true });
     if (drawState) cancelDrawCable();
     drawState = { path: [], color, onChange, onFinish };
     container.classList.add('mode-draw-cable');
@@ -788,6 +798,25 @@ export function createMap(container, options = {}) {
     map.getContainer().style.cursor = '';
     drawState = null;
     layers.draw.clearLayers();
+  }
+
+  function startMoveNode({ onMove } = {}) {
+    cancelPick();
+    cancelRoutePick({ silent: true });
+    cancelEditRoute({ silent: true });
+    cancelDrawCable({ silent: true });
+    moveState = { onMove };
+    container.classList.add('mode-move-node');
+    renderNodes();
+    opts.onMoveState?.(true);
+  }
+
+  function cancelMoveNode({ silent = false } = {}) {
+    if (!moveState) return;
+    moveState = null;
+    container.classList.remove('mode-move-node');
+    renderNodes();
+    if (!silent) opts.onMoveState?.(false);
   }
 
   function setLabels(enabled) {
@@ -861,6 +890,9 @@ export function createMap(container, options = {}) {
     finishDrawCable,
     cancelDrawCable,
     isDrawing: () => Boolean(drawState),
+    startMoveNode,
+    cancelMoveNode,
+    isMovingNode: () => Boolean(moveState),
     isPicking: () => Boolean(pickState),
     getDrawPath: () => (drawState ? [...drawState.path] : []),
     setLabels,

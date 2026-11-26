@@ -16,6 +16,7 @@ const BASEMAP_GROUPS = ['Gelap', 'Terang', 'Standar', 'Satelit', 'Topografi', 'K
 
 export async function render(view) {
   const types = nodeTypeCounts();
+  const canEditNodes = ['superadmin', 'admin', 'operator'].includes(state.user?.role) && !state.user?.demo;
   const basemaps = availableBasemaps();
   const current = basemapById(state.settings.map?.basemap);
   const ontTotal = state.nodes.filter((n) => n.type === 'ont').length;
@@ -54,6 +55,7 @@ export async function render(view) {
       </div>
       <button class="mt-btn" data-tip="Gambar rute kabel" data-action="draw">${icon('cable')}</button>
       <button class="mt-btn" data-tip="Edit rute kabel" data-action="edit-route">${icon('edit')}</button>
+      ${canEditNodes ? `<button class="mt-btn" data-tip="Pindahkan titik node" data-action="move-node">${icon('pin')}</button>` : ''}
       <div class="mt-sep"></div>
       <button class="mt-btn" data-tip="Lokasi saya" data-action="locate">${icon('navigation')}</button>
       <button class="mt-btn" data-tip="Ambil titik koordinat" data-action="coordinate">${icon('crosshair')}</button>
@@ -172,8 +174,23 @@ export async function render(view) {
     toolbar.querySelector('[data-action="draw"]')?.classList.remove('active');
   };
 
+  const beginMoveNode = () => {
+    if (!canEditNodes) return;
+    addMenu.classList.remove('open');
+    toolbar.querySelector('[data-action="draw"]')?.classList.remove('active');
+    toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
+    toolbar.querySelector('[data-action="move-node"]')?.classList.add('active');
+    showDrawbar({
+      title: 'Pindahkan titik node',
+      text: 'Seret marker node ke posisi baru. Koordinat tersimpan otomatis.',
+      actions: [{ id: 'move-done', label: 'Selesai', icon: 'check', primary: true }],
+    });
+    ctl.startMoveNode();
+  };
+
   const beginCableDraw = () => {
     addMenu.classList.remove('open');
+    toolbar.querySelector('[data-action="move-node"]')?.classList.remove('active');
     toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
     ctl?.cancelRoutePick({ silent: true });
     ctl?.cancelEditRoute({ silent: true });
@@ -245,6 +262,15 @@ export async function render(view) {
 
   ctl = createMap(canvas, {
     onNode: (node) => openNodeDrawer(node),
+    onNodeMove: async (id, latlng) => {
+      try {
+        await api.put(`/nodes/${id}`, { projectId: state.projectId, lat: latlng.lat, lng: latlng.lng });
+        toast.success('Posisi node diperbarui', 'Koordinat node berhasil disimpan.');
+        requestRefresh();
+      } catch (err) {
+        errorToast(err);
+      }
+    },
     onCable: (cable) => openCableDrawer(cable),
     onFault: (fault) => {
       import('../router.js').then(({ navigate }) => navigate('faults', { faultId: fault.id }));
@@ -472,10 +498,18 @@ export async function render(view) {
     const action = event.target.closest('[data-action]')?.dataset.action;
     if (action) {
       if (action === 'draw') {
+        if (ctl.isMovingNode()) { ctl.cancelMoveNode(); toolbar.querySelector('[data-action="move-node"]')?.classList.remove('active'); clearDrawbar(); }
         if (ctl.isDrawing()) { ctl.cancelDrawCable(); toolbar.querySelector('[data-action="draw"]')?.classList.remove('active'); clearDrawbar(); }
         else if (ctl.isPicking()) { ctl.cancelPick(); clearDrawbar(); }
         else beginCableDraw();
+      } else if (action === 'move-node') {
+        if (ctl.isMovingNode()) {
+          ctl.cancelMoveNode();
+          toolbar.querySelector('[data-action="move-node"]')?.classList.remove('active');
+          clearDrawbar();
+        } else beginMoveNode();
       } else if (action === 'edit-route') {
+        if (ctl.isMovingNode()) { ctl.cancelMoveNode(); toolbar.querySelector('[data-action="move-node"]')?.classList.remove('active'); clearDrawbar(); }
         if (ctl.isRouteEditing()) {
           ctl.cancelEditRoute();
           toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
@@ -497,6 +531,7 @@ export async function render(view) {
           toast.success('Lokasi ditemukan', `Akurasi ±${Math.round(result.accuracy || 0)} m.`);
         } catch (err) { toast.error('Gagal membaca lokasi', err.message); }
       } else if (action === 'coordinate') {
+        if (ctl.isMovingNode()) { ctl.cancelMoveNode(); toolbar.querySelector('[data-action="move-node"]')?.classList.remove('active'); }
         if (ctl.isPicking() || ctl.isDrawing()) { ctl.cancelPick({ silent: true }); ctl.cancelDrawCable({ silent: true }); clearDrawbar(); }
         showDrawbar({ title: 'Ambil titik koordinat', text: 'Klik peta untuk menampilkan latitude/longitude.', actions: [{ id: 'cancel', label: 'Batal', icon: 'x' }] });
         ctl.startPickMode('coordinate', {
@@ -553,6 +588,10 @@ export async function render(view) {
       } else if (db === 'route-cancel') {
         ctl.cancelEditRoute();
         toolbar.querySelector('[data-action="edit-route"]')?.classList.remove('active');
+        clearDrawbar();
+      } else if (db === 'move-done') {
+        ctl.cancelMoveNode();
+        toolbar.querySelector('[data-action="move-node"]')?.classList.remove('active');
         clearDrawbar();
       } else if (db === 'undo') {
         ctl.undoDrawPoint();
