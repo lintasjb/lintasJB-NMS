@@ -280,7 +280,7 @@ Halaman khusus administrator di `#/admin` (menu sidebar **Admin Panel**, hanya t
 | Tab | Isi |
 | --- | --- |
 | **Ringkasan** | Uptime, memori, jumlah pengguna/project/node, status monitor, integrasi, lisensi, aktivitas terakhir |
-| **Pengguna & Role** | Cari/filter, tambah akun, ubah role/status, reset password, hapus akun |
+| **Pengguna & Role** | Cari/filter, tambah akun, ubah role/status, reset password, hapus akun. Tombol **lihat password** hanya untuk superadmin |
 | **Project** | Buka, buat, duplikasi, dan hapus project beserta topologinya |
 | **Log Aktivitas** | Audit login, CRUD, integrasi, lisensi, dan tindakan admin (filter + paging) |
 | **Integrasi & Lisensi** | Status GenieACS, OLT, MikroTik, dan pemakaian kuota lisensi |
@@ -292,6 +292,11 @@ Batasan akses:
 - `admin` dapat mengelola pengguna non-superadmin, tetapi tidak dapat membuat/mengubah akun
   superadmin, mengubah harga, atau mengunduh backup.
 - `operator`/`viewer` tidak melihat menu Admin Panel dan mendapat `403` dari API admin.
+- Password disimpan sebagai hash bcrypt untuk login, ditambah salinan terenkripsi (AES-256-GCM)
+  yang hanya bisa dibuka superadmin melalui `GET /api/auth/users/:id/password`. Setiap pembukaan
+  tercatat di log aktivitas. Akun lama tanpa salinan terenkripsi akan terisi otomatis saat pemiliknya
+  login, atau setelah password direset. Kunci enkripsi ada di `data/secrets.json` — **sertakan
+  berkas ini saat backup**, jika tidak password tidak dapat dibaca setelah restore.
 - Harga tersimpan di `settings.pricing` (`{ currency: 'IDR', plans: [...] }`) dan dipakai oleh
   `/api/billing/config` untuk daftar paket, kuota node, harga cepat bulanan/tahunan, dan nominal
   awal pada form pembelian lisensi. Perubahan langsung tampil tanpa mengubah kode.

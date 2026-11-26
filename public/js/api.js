@@ -247,6 +247,7 @@ export const admin = {
   backup: () => download('/admin/backup', 'lintasjb-backup.json'),
   createUser: (payload) => post('/auth/users', payload),
   resetPassword: (id, newPassword) => post(`/auth/users/${id}/password`, { newPassword }),
+  viewPassword: (id) => get(`/auth/users/${id}/password`),
   projects: () => get('/projects'),
   createProject: (payload) => post('/projects', payload),
   duplicateProject: (id, name) => post(`/projects/${id}/duplicate`, { name }),

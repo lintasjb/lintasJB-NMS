@@ -10,6 +10,7 @@ import {
 } from '../lib/auth.js';
 import { getDb, save } from '../lib/store.js';
 import { pushActivity } from '../lib/faults.js';
+import { seal, unseal } from '../lib/secret.js';
 import { createProject, cloneProject } from '../lib/projects.js';
 import { asyncHandler, cleanText, httpError, requireFields } from './helpers.js';
 import { ROLES } from '../lib/auth.js';
@@ -21,6 +22,12 @@ function validatePassword(password) {
   if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
     throw httpError(400, 'Password harus memuat huruf dan angka.');
   }
+}
+
+/** Simpan hash untuk login dan salinan terenkripsi untuk superadmin. */
+function setUserPassword(user, plain) {
+  user.passwordHash = hashPassword(plain);
+  user.passwordEnc = seal(plain);
 }
 
 function uniqueUsername(db, base) {
@@ -58,6 +65,7 @@ router.post(
       username: uniqueUsername(db, req.body.username || email.split('@')[0]),
       email,
       passwordHash: hashPassword(password),
+      passwordEnc: seal(password),
       role: 'operator',
       company,
       phone: cleanText(req.body.phone, 30),
@@ -150,6 +158,8 @@ router.post(
     }
     if (user.status !== 'active') throw httpError(403, 'Akun dinonaktifkan. Hubungi administrator.');
     user.lastLoginAt = new Date().toISOString();
+    // Akun lama belum punya salinan terenkripsi; isi otomatis saat login.
+    if (!user.passwordEnc) user.passwordEnc = seal(password);
     pushActivity(db, {
       userId: user.id,
       userName: user.name,
@@ -201,7 +211,7 @@ router.put(
       throw httpError(400, 'Password lama tidak sesuai.');
     }
     validatePassword(req.body.newPassword);
-    user.passwordHash = hashPassword(req.body.newPassword);
+    setUserPassword(user, req.body.newPassword);
     save();
     res.json({ ok: true, message: 'Password berhasil diperbarui.' });
   })
@@ -248,6 +258,7 @@ router.post(
       username: uniqueUsername(db, req.body.username || email.split('@')[0]),
       email,
       passwordHash: hashPassword(password),
+      passwordEnc: seal(password),
       role,
       company: cleanText(req.body.company, 120) || 'Personal',
       phone: cleanText(req.body.phone, 30),
@@ -268,6 +279,30 @@ router.post(
   })
 );
 
+router.get(
+  '/users/:id/password',
+  requireAuth,
+  requireRole('superadmin'),
+  asyncHandler(async (req, res) => {
+    const db = getDb();
+    const user = db.users.find((u) => u.id === req.params.id);
+    if (!user) throw httpError(404, 'User tidak ditemukan.');
+    const password = unseal(user.passwordEnc || '');
+    pushActivity(db, {
+      userId: req.user.id,
+      userName: req.user.name,
+      action: 'user.password_view',
+      detail: `Melihat password akun ${user.name} (${user.email}).`,
+    });
+    save();
+    res.json({
+      user: { id: user.id, name: user.name, email: user.email },
+      password: password || null,
+      available: Boolean(password),
+    });
+  })
+);
+
 router.post(
   '/users/:id/password',
   requireAuth,
@@ -281,7 +316,7 @@ router.post(
     }
     const newPassword = String(req.body.newPassword || '');
     validatePassword(newPassword);
-    user.passwordHash = hashPassword(newPassword);
+    setUserPassword(user, newPassword);
     pushActivity(db, {
       userId: req.user.id,
       userName: req.user.name,

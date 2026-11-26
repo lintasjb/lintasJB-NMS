@@ -1484,3 +1484,8 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
   .admin-user__actions { width: 100%; }
   .admin-search { min-width: 100%; }
 }
+
+.admin-secret { display: flex; flex-direction: column; gap: 10px; }
+.admin-secret > p { font-size: 10.5px; line-height: 1.55; }
+.admin-secret__value { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--bg-2); }
+.admin-secret__value code { flex: 1; font-family: var(--mono); font-size: 13px; color: var(--accent); word-break: break-all; }

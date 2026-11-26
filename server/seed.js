@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { pathLength } from './lib/geo.js';
 import { createTrialLicense } from './lib/license.js';
 import { DEFAULT_PRICING } from './lib/pricing.js';
-import { randomToken } from './lib/secret.js';
+import { randomToken, seal } from './lib/secret.js';
 
 const now = () => new Date().toISOString();
 const ago = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
@@ -392,6 +392,7 @@ export function buildSeed() {
         username: 'admin',
         email: 'admin@lintasjb.id',
         passwordHash: adminHash,
+        passwordEnc: seal('Admin123!'),
         role: 'superadmin',
         company: 'PT Lintas Jaringan Bersama',
         phone: '',
@@ -405,6 +406,7 @@ export function buildSeed() {
         username: 'operator',
         email: 'operator@lintasjb.id',
         passwordHash: operatorHash,
+        passwordEnc: seal('Operator123!'),
         role: 'operator',
         company: 'PT Lintas Jaringan Bersama',
         phone: '',
@@ -418,6 +420,7 @@ export function buildSeed() {
         username: 'demo',
         email: 'demo@lintasjb.id',
         passwordHash: demoHash,
+        passwordEnc: seal('Demo123!'),
         role: 'viewer',
         company: 'lintasJB Demo',
         phone: '',

@@ -7,7 +7,7 @@ import * as api from '../api.js';
 import { state } from '../state.js';
 import {
   esc, icon, fmt, toast, errorToast, empty, field, formValues,
-  confirmDialog, modal, ROLE_LABEL,
+  confirmDialog, modal, copyText, ROLE_LABEL,
 } from '../ui.js';
 import { requestRefresh } from '../forms.js';
 import { navigate } from '../router.js';
@@ -136,6 +136,7 @@ function userRow(u, { onReset, onDelete } = {}) {
         <option value="active" ${u.status !== 'disabled' ? 'selected' : ''}>Aktif</option>
         <option value="disabled" ${u.status === 'disabled' ? 'selected' : ''}>Nonaktif</option>
       </select></label>
+      ${isSuper() ? `<button class="icon-btn" data-user-view="${esc(u.id)}" title="Lihat password (superadmin)">${icon('eye')}</button>` : ''}
       <button class="icon-btn" data-user-reset="${esc(u.id)}" title="Reset password">${icon('key')}</button>
       <button class="icon-btn" data-user-delete="${esc(u.id)}" title="Hapus pengguna" ${self ? 'disabled' : ''}>${icon('trash')}</button>
     </div>
@@ -324,7 +325,7 @@ async function loadOverview(el) {
 
 async function loadUsers(el) {
   el.innerHTML = `<section class="settings-section">
-    <div class="settings-section__head"><h3>${icon('user')} Pengguna aplikasi</h3><p>Tambah akun, atur role/status, reset password, atau hapus pengguna.</p></div>
+    <div class="settings-section__head"><h3>${icon('user')} Pengguna aplikasi</h3><p>Tambah akun, atur role/status, reset password, atau hapus pengguna. Tombol mata (lihat password) hanya untuk superadmin.</p></div>
     <div class="settings-section__body">
       <div class="admin-toolbar">
         <label class="admin-search">${icon('search')}<input id="au-q" placeholder="Cari nama, email, atau username…" /></label>
@@ -399,6 +400,11 @@ async function loadUsers(el) {
   });
 
   listEl.addEventListener('click', async (event) => {
+    const view = event.target.closest('[data-user-view]');
+    if (view) {
+      await openViewPassword(users.find((u) => u.id === view.dataset.userView));
+      return;
+    }
     const reset = event.target.closest('[data-user-reset]');
     if (reset) {
       openResetPassword(users.find((u) => u.id === reset.dataset.userReset), load);
@@ -465,6 +471,41 @@ function openCreateUser(onDone) {
       });
     },
   });
+}
+
+async function openViewPassword(user) {
+  if (!user || !isSuper()) return;
+  try {
+    const res = await api.admin.viewPassword(user.id);
+    const body = res.password
+      ? `<div class="admin-secret">
+          <p class="muted">Password akun <b>${esc(user.name)}</b> (${esc(user.email)}). Fitur ini hanya tersedia untuk superadmin.</p>
+          <div class="admin-secret__value"><code id="av-password">${esc(res.password)}</code><button type="button" class="btn btn-xs btn-soft" data-copy-password>${icon('copy')} Salin</button></div>
+          <p class="muted">Pembukaan password tercatat di log aktivitas.</p>
+        </div>`
+      : `<div class="admin-note">${icon('info')} <span>Password akun ini belum tersimpan dalam bentuk terenkripsi. Minta pengguna login sekali atau gunakan tombol reset password.</span></div>`;
+    modal({
+      title: 'Lihat password',
+      subtitle: `${user.name} · ${user.email}`,
+      iconName: 'eye',
+      size: 'sm',
+      body,
+      footer: `<button type="button" class="btn btn-soft" data-cancel>Tutup</button>`,
+      onMount(apiRef, root) {
+        root.querySelector('[data-cancel]')?.addEventListener('click', apiRef.close);
+        root.querySelector('[data-copy-password]')?.addEventListener('click', async () => {
+          try {
+            await copyText(res.password);
+            toast.success('Password disalin', 'Password berhasil disalin ke clipboard.');
+          } catch {
+            errorToast(new Error('Gagal menyalin password.'));
+          }
+        });
+      },
+    });
+  } catch (err) {
+    errorToast(err);
+  }
 }
 
 function openResetPassword(user, onDone) {
