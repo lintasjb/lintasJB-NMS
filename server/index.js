@@ -216,7 +216,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  lintasJB NMS v1.0.0  •  http://localhost:${PORT}`);
   console.log(`  Data: ${DATA_DIR}`);
   console.log(`  License secret: ${getLicenseSecret() ? 'loaded' : 'missing'}`);
-  console.log('  Login demo: admin@lintasjb.id / Admin123!');
+  console.log('  Login demo: demo@lintasjb.id / Demo123! (project simulasi, hanya-baca)');
+  console.log('  Login admin: admin@lintasjb.id / Admin123! (jika tersedia)');
   console.log('  Tekan Ctrl+C untuk berhenti.');
   console.log('');
   scheduleMonitor();
