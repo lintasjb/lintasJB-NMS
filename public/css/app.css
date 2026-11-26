@@ -1520,3 +1520,6 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
 }
 .parent-picker__search:focus { border-color: var(--accent); }
 .parent-picker__search::placeholder { color: var(--dim); }
+
+/* Tap surface untuk menggambar rute kabel di layar sentuh */
+.draw-tap-surface { position: absolute; inset: 0; z-index: 690; touch-action: none; cursor: crosshair; }

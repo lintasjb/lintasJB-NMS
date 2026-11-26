@@ -43,6 +43,8 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
 - **Node** POP site, router, server, OLT, ODC, ODP, ONT, dan joint closure. Form node memiliki
   kolom pencarian **Parent / uplink** (nama atau kode) agar mudah memilih dari ratusan node.
 - **Rute kabel** dengan gambar polyline di peta, panjang geodesic otomatis, jumlah core, dan utilisasi.
+  Menggambar rute mendukung banyak titik lewat tap di layar sentuh; geser jari tetap dipakai untuk
+  menggeser peta dan tidak menambah titik.
 - Marker gangguan berdenyut, overlay peringatan, sorotan kabel putus, dan efek suara alarm.
 - **Lokasi saya** (geolocation), ambil titik koordinat, pencarian global `Ctrl+K`, dan mode layar penuh.
 - Posisi dan zoom peta disimpan per project; refresh data realtime tidak mengembalikan tampilan ke

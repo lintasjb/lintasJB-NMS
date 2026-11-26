@@ -561,7 +561,6 @@ export function createMap(container, options = {}) {
       renderRouteEdit();
       routeEditState.onChange?.(routeEditState.path);
     };
-    map.on('click', routeEditState.onMapClick);
     renderRouteEdit();
     if (clone.length) map.fitBounds(L.latLngBounds(clone), { padding: [70, 70], maxZoom: 18, animate: true });
   }
@@ -571,6 +570,7 @@ export function createMap(container, options = {}) {
     const prev = routeEditState;
     routeEditState = null;
     map.off('click', prev.onMapClick);
+    prev.surface?.remove();
     layers.draw.clearLayers();
     layers.routeHandles.clearLayers();
     container.classList.remove('mode-edit-route');
@@ -589,6 +589,13 @@ export function createMap(container, options = {}) {
     if (!routeEditState) return;
     routeEditState.addMode = true;
     map.getContainer().style.cursor = 'crosshair';
+    routeEditState.surface?.remove();
+    routeEditState.surface = bindTapSurface((latlng) => {
+      if (!routeEditState?.addMode) return;
+      routeEditState.onMapClick({ latlng });
+      routeEditState.surface?.remove();
+      routeEditState.surface = null;
+    });
     routeEditState.onChange?.(routeEditState.path);
   }
 
@@ -667,6 +674,7 @@ export function createMap(container, options = {}) {
         opacity: 0.95,
         dashArray: '10 7',
         className: drawState.path.length > 1 ? 'cable-anim-flow' : '',
+        interactive: false,
       }).addTo(layers.draw);
       path.forEach((p, i) => {
         L.circleMarker(p, {
@@ -675,6 +683,7 @@ export function createMap(container, options = {}) {
           weight: 2,
           fillColor: '#07101b',
           fillOpacity: 1,
+          interactive: false,
         }).addTo(layers.draw);
         if (i > 0) {
           const seg = pathLength([path[i - 1], p]);
@@ -691,6 +700,36 @@ export function createMap(container, options = {}) {
     drawState.onChange?.(path);
   }
 
+  /**
+   * Permukaan sentuh khusus saat menggambar rute. Di HP, klik pada marker/
+   * polyline draf tidak diteruskan ke peta, sehingga titik berikutnya tidak
+   * pernah masuk. Permukaan ini menangkap tap langsung dan mengubahnya menjadi
+   * koordinat, sambil tetap membiarkan drag/pinch diproses Leaflet.
+   */
+  function bindTapSurface(onTap) {
+    const surface = document.createElement('div');
+    surface.className = 'draw-tap-surface';
+    container.appendChild(surface);
+    const active = new Set();
+    let start = null;
+    surface.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      active.add(event.pointerId);
+      if (active.size === 1) start = { x: event.clientX, y: event.clientY };
+    });
+    surface.addEventListener('pointerup', (event) => {
+      const single = active.size === 1;
+      active.delete(event.pointerId);
+      if (!single || !start) return;
+      const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+      if (moved > 12) return;
+      const rect = container.getBoundingClientRect();
+      onTap(map.containerPointToLatLng([event.clientX - rect.left, event.clientY - rect.top]));
+    });
+    surface.addEventListener('pointercancel', (event) => active.delete(event.pointerId));
+    return surface;
+  }
+
   function startDrawCable({ color = '#22d3ee', onChange, onFinish } = {}) {
     cancelPick();
     cancelRoutePick({ silent: true });
@@ -700,18 +739,17 @@ export function createMap(container, options = {}) {
     container.classList.add('mode-draw-cable');
     map.getContainer().style.cursor = 'crosshair';
     map.doubleClickZoom.disable();
-    drawState.clickHandler = (event) => {
-      if (!drawState) return;
-      drawState.path.push([Number(event.latlng.lat.toFixed(7)), Number(event.latlng.lng.toFixed(7))]);
-      redrawDraft();
-    };
     drawState.moveHandler = (event) => {
       if (!drawState?.path.length) return;
       redrawDraft();
       const path = [...drawState.path, [event.latlng.lat, event.latlng.lng]];
-      L.polyline(path.slice(-2), { pane: 'cablesPane', color: drawState.color, weight: 2, opacity: 0.45, dashArray: '5 6' }).addTo(layers.draw);
+      L.polyline(path.slice(-2), { pane: 'cablesPane', color: drawState.color, weight: 2, opacity: 0.45, dashArray: '5 6', interactive: false }).addTo(layers.draw);
     };
-    map.on('click', drawState.clickHandler);
+    drawState.surface = bindTapSurface((latlng) => {
+      if (!drawState) return;
+      drawState.path.push([Number(latlng.lat.toFixed(7)), Number(latlng.lng.toFixed(7))]);
+      redrawDraft();
+    });
     map.on('mousemove', drawState.moveHandler);
     redrawDraft();
   }
@@ -744,6 +782,7 @@ export function createMap(container, options = {}) {
     if (!drawState) return;
     map.off('click', drawState.clickHandler);
     map.off('mousemove', drawState.moveHandler);
+    drawState.surface?.remove();
     map.doubleClickZoom.enable();
     container.classList.remove('mode-draw-cable');
     map.getContainer().style.cursor = '';
