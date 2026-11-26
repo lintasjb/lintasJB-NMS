@@ -168,7 +168,7 @@ function scheduleRefresh(delay = 420) {
   }, delay);
 }
 
-async function refreshAll({ render = true } = {}) {
+async function refreshAll({ render = true, forceRender = false } = {}) {
   if (refreshing) {
     refreshQueued = true;
     return;
@@ -180,7 +180,15 @@ async function refreshAll({ render = true } = {}) {
       try {
         await loadBootstrap();
         updateShell();
-        if (render && !appEl.classList.contains('hidden')) await renderRoute();
+        if (render && !appEl.classList.contains('hidden')) {
+          // Live Map cukup diperbarui datanya — bangun ulang peta akan
+          // mengembalikan tampilan ke posisi awal dan menghilangkan filter.
+          if (!forceRender && currentView() === 'map') {
+            document.dispatchEvent(new CustomEvent('nms:map-refresh'));
+          } else {
+            await renderRoute();
+          }
+        }
       } catch (err) {
         if (err?.status === 401) return;
         console.warn('[refresh]', err);
@@ -813,7 +821,7 @@ function wireShell() {
   document.getElementById('project-select')?.addEventListener('change', (event) => {
     api.setProjectId(event.target.value);
     toast.info('Mengganti project', 'Memuat data project terpilih…');
-    refreshAll({ render: true });
+    refreshAll({ render: true, forceRender: true });
   });
 
   document.getElementById('sidebar-collapse')?.addEventListener('click', () => {

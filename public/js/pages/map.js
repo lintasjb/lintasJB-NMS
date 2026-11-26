@@ -608,9 +608,23 @@ export async function render(view) {
   };
   document.addEventListener('click', hideMenu);
 
+  const onDataRefresh = () => {
+    ctl.renderAll();
+    const title = view.querySelector('.map-hud__title span');
+    if (title) {
+      title.textContent = `${state.project?.code || ''} · ${fmt.num(state.nodes.length)} node · ${fmt.num(state.cables.length)} kabel`;
+    }
+    const ontTotal = state.nodes.filter((n) => n.type === 'ont').length;
+    const ontOnline = state.nodes.filter((n) => n.type === 'ont' && n.status === 'online').length;
+    const ontEl = view.querySelector('.map-hud__stat b');
+    if (ontEl) ontEl.textContent = `${ontOnline}/${ontTotal}`;
+  };
+  document.addEventListener('nms:map-refresh', onDataRefresh);
+
   registerCleanup(() => {
     document.removeEventListener('click', hideMenu);
     document.removeEventListener('click', closeSearchOutside);
+    document.removeEventListener('nms:map-refresh', onDataRefresh);
     ctl?.destroy();
   });
 }
