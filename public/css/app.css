@@ -1511,3 +1511,12 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
 .method-toggle:hover { border-color: var(--accent); }
 .method-toggle input { width: 14px; height: 14px; accent-color: var(--accent); flex: none; }
 @media (max-width: 720px) { .method-settings__grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* Pencarian parent / uplink di form node */
+.parent-picker { display: flex; flex-direction: column; gap: 5px; }
+.parent-picker__search {
+  width: 100%; height: 30px; padding: 0 9px; font-size: 10.5px;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; color: var(--text); outline: none;
+}
+.parent-picker__search:focus { border-color: var(--accent); }
+.parent-picker__search::placeholder { color: var(--dim); }

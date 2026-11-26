@@ -13,15 +13,15 @@ export function requestRefresh() {
   document.dispatchEvent(new CustomEvent('nms:refresh'));
 }
 
-const nodeOptions = (selected, includeEmpty = true) => {
+const nodeOptions = (selected, includeEmpty = true, skipId = '') => {
   const groups = [
     ['pop', 'POP'], ['router', 'Router'], ['server', 'Server'], ['olt', 'OLT'],
     ['odc', 'ODC'], ['closure', 'Joint Closure'], ['odp', 'ODP'], ['ont', 'ONT'],
   ];
   const options = includeEmpty ? [{ value: '', label: '— Tanpa parent —' }] : [];
   for (const [type, label] of groups) {
-    for (const node of state.nodes.filter((n) => n.type === type)) {
-      options.push({ value: node.id, label: `${label} · ${node.name}` });
+    for (const node of state.nodes.filter((n) => n.type === type && n.id !== skipId)) {
+      options.push({ value: node.id, label: `${label} · ${node.name}${node.code ? ` (${node.code})` : ''}` });
     }
   }
   return options.map((o) => `<option value="${esc(o.value)}" ${String(o.value) === String(selected || '') ? 'selected' : ''}>${esc(o.label)}</option>`).join('');
@@ -46,7 +46,7 @@ export function openNodeModal({ node = null, latlng = null, type: presetType = '
         </div>
         <div class="grid-2 mt-2">
           ${field('Status', `<select name="status">${Object.entries(NODE_STATUS).map(([k, v]) => `<option value="${k}" ${node?.status === k || (!node && k === 'online') ? 'selected' : ''}>${esc(v.label)}</option>`).join('')}</select>`)}
-          ${field('Parent / uplink', `<select name="parentId">${nodeOptions(node?.parentId)}</select>`)}
+          ${field('Parent / uplink', `<div class="parent-picker"><input type="search" class="parent-picker__search" data-parent-search placeholder="Cari nama atau kode node…" aria-label="Cari parent" /><select name="parentId" data-parent-select>${nodeOptions(node?.parentId, true, node?.id)}</select></div>`)}
         </div>
       </div>
       <div class="form-section">
@@ -91,6 +91,21 @@ export function openNodeModal({ node = null, latlng = null, type: presetType = '
     onMount(ui, root) {
       let selectedType = type;
       bindTypePicker(root, 'nodeType', (value) => { selectedType = value; });
+      const parentSearch = root.querySelector('[data-parent-search]');
+      const parentSelect = root.querySelector('[data-parent-select]');
+      if (parentSearch && parentSelect) {
+        const allOptions = [...parentSelect.options].map((o) => ({ value: o.value, label: o.textContent }));
+        parentSearch.addEventListener('input', () => {
+          const query = parentSearch.value.trim().toLowerCase();
+          const current = parentSelect.value;
+          const matches = allOptions.filter((o) =>
+            !query || o.value === current || o.label.toLowerCase().includes(query)
+          );
+          parentSelect.innerHTML = matches
+            .map((o) => `<option value="${esc(o.value)}" ${o.value === current ? 'selected' : ''}>${esc(o.label)}</option>`)
+            .join('');
+        });
+      }
       const form = root.querySelector('#node-form');
       const save = root.querySelector('[data-save]');
       save.addEventListener('click', async () => {

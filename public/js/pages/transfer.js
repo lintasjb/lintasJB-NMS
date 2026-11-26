@@ -205,15 +205,32 @@ export async function render(view) {
     renderFile();
   }
 
+  async function ensureProject() {
+    if (state.project?.id) return true;
+    toast.warn('Project belum tersedia', 'Halaman akan dimuat ulang sebelum import.');
+    requestRefresh();
+    return false;
+  }
+
+  function handleImportError(err) {
+    if (err?.status === 403) {
+      toast.error('Akses project berakhir', 'Project tidak lagi tersedia untuk akun ini. Data akan disegarkan.');
+      requestRefresh();
+    } else {
+      errorToast(err);
+    }
+  }
+
   async function runPreview(dryRunOnly = true) {
     if (!file || busy) return null;
+    if (!await ensureProject()) return null;
     clearPreview();
     setBusy(true, 'Membaca file dan memvalidasi geometri…');
     try {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('dryRun', '1');
-      fd.append('projectId', state.projectId);
+      fd.append('projectId', state.projectId || state.project.id);
       const result = await api.upload('/io/import', fd, (progress) => {
         const pct = Math.round(progress * 100);
         statusSlot.innerHTML = `<div class="hint mt-2">${icon('upload')} Mengunggah ${pct}%…</div>`;
@@ -225,7 +242,7 @@ export async function render(view) {
       if (!dryRunOnly) return result;
       return result;
     } catch (err) {
-      errorToast(err);
+      handleImportError(err);
       return null;
     } finally {
       setBusy(false);
@@ -235,6 +252,7 @@ export async function render(view) {
 
   async function runImport() {
     if (!file || busy) return;
+    if (!await ensureProject()) return;
     if (!preview) {
       const result = await runPreview();
       if (!result) return;
@@ -258,7 +276,7 @@ export async function render(view) {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('dryRun', '0');
-      fd.append('projectId', state.projectId);
+      fd.append('projectId', state.projectId || state.project.id);
       const result = await api.upload('/io/import', fd, (progress) => {
         statusSlot.innerHTML = `<div class="hint mt-2">${icon('upload')} Mengunggah ${Math.round(progress * 100)}%…</div>`;
       });
@@ -272,7 +290,7 @@ export async function render(view) {
       requestRefresh();
       loadHistory();
     } catch (err) {
-      errorToast(err);
+      handleImportError(err);
     } finally {
       setBusy(false);
       renderFile();

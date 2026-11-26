@@ -142,10 +142,11 @@ export function download(path, fallbackName = 'lintasjb-export') {
   });
 }
 
-export function upload(path, formData, onProgress) {
+export function upload(path, formData, onProgress, attempt = 0) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API}${path}`);
+    xhr.timeout = 120000;
     const token = readToken();
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.upload.addEventListener('progress', (e) => {
@@ -159,13 +160,28 @@ export function upload(path, formData, onProgress) {
         clearSession();
         window.dispatchEvent(new CustomEvent('nms:unauthorized'));
         reject(new ApiError('Sesi kedaluwarsa. Silakan login kembali.', 401, data));
+      } else if ((xhr.status === 502 || xhr.status === 503 || xhr.status === 504) && attempt < 2) {
+        retryUpload(path, formData, onProgress, attempt, resolve, reject);
       } else {
         reject(new ApiError(data?.error || `Upload gagal (${xhr.status}).`, xhr.status, data));
       }
     });
-    xhr.addEventListener('error', () => reject(new ApiError('Upload gagal: koneksi ke server terputus.', 0)));
+    const networkFail = () => {
+      if (attempt < 2) retryUpload(path, formData, onProgress, attempt, resolve, reject);
+      else reject(new ApiError('Upload gagal: koneksi ke server terputus. Periksa jaringan lalu coba lagi.', 0));
+    };
+    xhr.addEventListener('error', networkFail);
+    xhr.addEventListener('timeout', networkFail);
     xhr.send(formData);
   });
+}
+
+function retryUpload(path, formData, onProgress, attempt, resolve, reject) {
+  const copy = new FormData();
+  for (const [key, value] of formData.entries()) copy.append(key, value);
+  setTimeout(() => {
+    upload(path, copy, onProgress, attempt + 1).then(resolve).catch(reject);
+  }, 800 * (attempt + 1));
 }
 
 let source = null;

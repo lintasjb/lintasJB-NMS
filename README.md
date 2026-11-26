@@ -40,7 +40,8 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
 - **Animasi aliran kabel** per tipe (backbone, feeder, distribusi, drop) dengan warna, kecepatan,
   arah, dan 13 pola animasi: `flow`, `glowflow` (aliran bercahaya), `comet`, `packet`, `wave`,
   `laser`, `rainbow`, `pulse`, `dash`, `glow`, `breath`, `static`, dan `none`.
-- **Node** POP site, router, server, OLT, ODC, ODP, ONT, dan joint closure.
+- **Node** POP site, router, server, OLT, ODC, ODP, ONT, dan joint closure. Form node memiliki
+  kolom pencarian **Parent / uplink** (nama atau kode) agar mudah memilih dari ratusan node.
 - **Rute kabel** dengan gambar polyline di peta, panjang geodesic otomatis, jumlah core, dan utilisasi.
 - Marker gangguan berdenyut, overlay peringatan, sorotan kabel putus, dan efek suara alarm.
 - **Lokasi saya** (geolocation), ambil titik koordinat, pencarian global `Ctrl+K`, dan mode layar penuh.
@@ -61,6 +62,8 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
 
 ### Data & administrasi
 - Import/export **KML, KMZ, GeoJSON, CSV** (node dan kabel) dengan pratinjau dry-run.
+  Upload memiliki retry otomatis (hingga 3 percobaan) bila koneksi mobile terputus, serta
+  validasi project aktif sebelum mengirim file.
 - Branding perusahaan: nama, tagline, logo upload, warna aksen, favicon.
 - Lisensi kustom HMAC dengan trial 30 hari, aktivasi, dan generator kunci.
 - **Pembelian lisensi** dengan harga kustom dan 14 metode pembayaran: QRIS (QR EMVCo),
