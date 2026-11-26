@@ -126,17 +126,17 @@ export const PAYMENT_METHODS = [
 ];
 
 export const DEFAULT_BILLING = {
-  merchantName: 'PT Lintas Jaringan Bersama',
-  merchantCity: 'Cirahayu',
-  merchantId: 'ID1024000000001',
-  supportEmail: 'billing@lintasjb.id',
-  supportPhone: '0812-3456-7890',
-  ewalletNumber: '0812-3456-7890',
+  merchantName: 'DIKI PRISKI',
+  merchantCity: 'Kuningan',
+  merchantId: 'ID1023289176993',
+  supportEmail: 'kmskuningannet@gmail.com',
+  supportPhone: '0838-2454-0083',
+  ewalletNumber: '0838-2454-0083',
   accounts: {
-    bca: { number: '1234567890', holder: 'PT Lintas Jaringan Bersama' },
-    bni: { number: '0987654321', holder: 'PT Lintas Jaringan Bersama' },
-    bri: { number: '1122334455', holder: 'PT Lintas Jaringan Bersama' },
-    mandiri: { number: '1300012345678', holder: 'PT Lintas Jaringan Bersama' },
+    bca: { number: 'saat ini tidak tersedia', holder: 'PT Lintas Jaringan Bersama' },
+    bni: { number: '2020214867', holder: 'DIKI PRISKI' },
+    bri: { number: '427501033415534', holder: 'DIKI PRISKI' },
+    mandiri: { number: '1340026200161', holder: 'DIKI PRISKI' },
   },
   note: 'Pembayaran diverifikasi manual oleh tim billing. Untuk integrasi payment gateway otomatis, hubungi tim lintasJB.',
 };
@@ -215,11 +215,11 @@ function crc16(input) {
  * Membuat payload QRIS bergaya EMVCo (mode demo). Nominal terkunci sesuai tagihan
  * sehingga pelanggan tidak perlu mengetik ulang saat memindai.
  */
-export function buildQrisPayload({ merchantName, merchantCity, amount, invoiceNo }) {
+export function buildQrisPayload({ merchantName, merchantCity, merchantId, amount, invoiceNo }) {
   const name = String(merchantName || 'lintasJB').slice(0, 25);
-  const city = String(merchantCity || 'Cirahayu').slice(0, 15);
+  const city = String(merchantCity || 'Kuningan').slice(0, 15);
   const account = tlv('00', 'ID.CO.QRIS.DEMO.WWW');
-  const merchant = tlv('01', '936000000000000001') + tlv('02', 'ID1024000000001') + tlv('03', 'UMI');
+  const merchant = tlv('01', '936000000000000001') + tlv('02', String(merchantId || 'ID1023289176993').slice(0, 25)) + tlv('03', 'UMI');
   const payload =
     tlv('00', '01') +
     tlv('01', '12') +

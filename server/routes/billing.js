@@ -256,6 +256,7 @@ router.get(
     const payload = buildQrisPayload({
       merchantName: config.merchantName,
       merchantCity: config.merchantCity,
+      merchantId: config.merchantId,
       amount: order.total,
       invoiceNo: order.invoiceNo,
     });
