@@ -117,8 +117,13 @@ export function createMap(container, options = {}) {
       // Di atas itu Leaflet memperbesar tile terakhir, sehingga tidak muncul
       // placeholder "Map data not yet available" saat zoom dekat.
       const native = chosen.maxNativeZoom ?? chosen.maxZoom ?? 19;
+      // Batasi zoom tampilan beberapa level di atas zoom asli penyedia.
+      // Di perangkat sentuh, pinch zoom mudah melewati batas tile sehingga
+      // memunculkan placeholder "Map data not yet available".
+      const viewMax = Math.min(22, native + 3);
+      map.setMaxZoom(viewMax);
       const tileOpts = {
-        maxZoom: 22,
+        maxZoom: viewMax,
         maxNativeZoom: native,
         attribution: chosen.attribution || '',
         crossOrigin: true,

@@ -34,6 +34,9 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
   Geographic, OpenStreetMap, OpenTopoMap, Humanitarian, kanvas kosong) dan dukungan tile kustom.
 - Basemap bawaan memakai penyedia **tanpa API key**; id Carto lama dimigrasikan otomatis agar
   peta tidak lagi menampilkan watermark “API KEY REQUIRED”.
+- Zoom tile dibatasi pada zoom asli penyedia (Esri Imagery 18, Esri Topo/Street 16). Di atas itu
+  Leaflet memperbesar tile terakhir, sehingga tidak muncul placeholder “Map data not yet available”
+  saat pinch-zoom di perangkat mobile.
 - **Animasi aliran kabel** per tipe (backbone, feeder, distribusi, drop) dengan warna, kecepatan,
   arah, dan 13 pola animasi: `flow`, `glowflow` (aliran bercahaya), `comet`, `packet`, `wave`,
   `laser`, `rainbow`, `pulse`, `dash`, `glow`, `breath`, `static`, dan `none`.
