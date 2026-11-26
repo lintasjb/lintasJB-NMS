@@ -5,6 +5,7 @@ export const ROUTES = {
   assets: { title: 'Aset Jaringan', subtitle: 'POP, OLT, ODC, ODP, joint closure, dan ONT' },
   cables: { title: 'Kabel & Rute', subtitle: 'Backbone, feeder, distribusi, dan drop' },
   faults: { title: 'Fault Locator', subtitle: 'Deteksi titik putus kabel & gangguan perangkat' },
+  attenuation: { title: 'Kalkulator Redaman', subtitle: 'Estimasi loss optik, splitter, dan jarak maksimal FTTH' },
   devices: { title: 'Perangkat', subtitle: 'GenieACS, OLT multi-vendor, dan MikroTik RouterOS' },
   transfer: { title: 'Import / Export', subtitle: 'KML, KMZ, GeoJSON, dan CSV untuk project peta' },
   settings: { title: 'Pengaturan', subtitle: 'Branding, peta, alarm, lisensi, dan integrasi' },

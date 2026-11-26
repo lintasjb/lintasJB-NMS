@@ -56,6 +56,8 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
 ### Operasional
 - **POSGIS fault locator**: konversi jarak OTDR (meter/km) atau persentase kabel menjadi koordinat
   titik putus, plus daftar node terdampak dan pembuatan gangguan + alarm otomatis.
+- **Kalkulator redaman**: halaman sidebar untuk menghitung total loss serat, splice, konektor,
+  splitter, margin desain, daya terima, status kelayakan link, dan jarak maksimal (1310/1550 nm).
 - **Alarm center** realtime (SSE) dengan acknowledge, resolve, dan riwayat.
 - **Simulasi gangguan** kabel/perangkat untuk validasi alarm dan animasi.
 - **Monitor otomatis** berkala untuk GenieACS, OLT, dan router; deteksi ONT offline dan pembuatan

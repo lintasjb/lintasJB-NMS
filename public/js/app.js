@@ -18,6 +18,7 @@ const PAGE_LOADERS = {
   assets: () => import('./pages/assets.js'),
   cables: () => import('./pages/cables.js'),
   faults: () => import('./pages/faults.js'),
+  attenuation: () => import('./pages/attenuation.js'),
   devices: () => import('./pages/devices.js'),
   transfer: () => import('./pages/transfer.js'),
   settings: () => import('./pages/settings.js'),

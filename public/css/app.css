@@ -1528,3 +1528,21 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
 .leaflet-container.mode-move-node .node-icon-wrap { cursor: grab; }
 .leaflet-container.mode-move-node .leaflet-marker-draggable .node-icon-wrap { cursor: move; }
 .leaflet-container.mode-move-node .node-marker { outline: 1px dashed rgba(34,211,238,.5); outline-offset: 3px; border-radius: 8px; }
+
+/* Kalkulator redaman */
+.att-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 14px; align-items: start; }
+.att-result { display: flex; flex-direction: column; gap: 10px; }
+.att-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.att-status .muted { font-size: 10.5px; }
+.att-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.att-hero > div { display: flex; flex-direction: column; gap: 3px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg-2); }
+.att-hero span { font-size: 9.5px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+.att-hero b { font-size: 16px; color: var(--accent); }
+.usage-bar i.is-bad { background: linear-gradient(90deg, var(--danger), #ff8aa0); }
+.att-breakdown { border-top: 1px solid var(--line); margin-top: 4px; }
+.att-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(29,44,67,.45); }
+.att-row > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.att-row b { font-size: 11px; white-space: nowrap; }
+.att-row small { font-size: 9.5px; color: var(--dim); }
+.att-row--total b { color: var(--accent); }
+@media (max-width: 900px) { .att-layout { grid-template-columns: 1fr; } }
