@@ -5,7 +5,7 @@ import { XMLParser } from 'fast-xml-parser';
 import { getDb, save } from '../lib/store.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { haversine, pathLength } from '../lib/geo.js';
-import { licenseStatus } from '../lib/license.js';
+import { licenseStatusFor } from '../lib/license.js';
 import { pushActivity, uid } from '../lib/faults.js';
 import { emitEvent } from '../lib/events.js';
 import { BASEMAPS } from '../basemaps.js';
@@ -418,8 +418,8 @@ router.post(
       res.json({ dryRun: true, preview, message: 'Pratinjau import siap.' });
       return;
     }
-    const license = licenseStatus(db.license, db.nodes.length);
-    const capacity = Math.max(0, (license.maxNodes || 0) - db.nodes.length);
+    const lic = licenseStatusFor(db, req.user);
+    const capacity = Math.max(0, (lic.maxNodes || 0) - (lic.nodeCount || 0));
     const createdNodes = [];
     const createdCables = [];
     const now = new Date().toISOString();

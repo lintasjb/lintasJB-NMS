@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getDb, save } from '../lib/store.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
-import { licenseStatus } from '../lib/license.js';
+import { licenseStatusFor } from '../lib/license.js';
 import { pushActivity } from '../lib/faults.js';
 import { emitEvent } from '../lib/events.js';
 import { DATA_DIR } from '../lib/secret.js';
@@ -81,7 +81,7 @@ router.get(
         orders: (db.orders || []).length,
       },
       monitor: monitorStatus(),
-      license: licenseStatus(db.license, db.nodes.length),
+      license: licenseStatusFor(db, req.user),
       storage: {
         dataDir: DATA_DIR,
         dbBytes: fileSize(path.join(DATA_DIR, 'db.json')),

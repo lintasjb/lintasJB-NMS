@@ -379,8 +379,10 @@ function connectEvents() {
         scheduleRefresh(120);
         return;
       }
-      if (type === 'settings' || type === 'license') {
-        scheduleRefresh(180);
+      if (type === 'license') {
+        // Aksi generate/aktivasi lisensi dilakukan di halaman Pengaturan;
+        // render ulang di sana akan menghilangkan kunci hasil generate.
+        if (currentView() !== 'settings') scheduleRefresh(180);
         return;
       }
       if (type === 'import') {

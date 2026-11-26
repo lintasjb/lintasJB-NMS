@@ -2,7 +2,11 @@ import express from 'express';
 import { getDb, save, DATA_DIR } from '../lib/store.js';
 import { requireAuth, requireRole, publicUser } from '../lib/auth.js';
 import { hasSecret } from '../lib/secret.js';
-import { assertNodeQuota, licenseStatus } from '../lib/license.js';
+import {
+  assertNodeQuotaFor,
+  keyForUser,
+  licenseStatusFor,
+} from '../lib/license.js';
 import {
   createAlarm,
   createFault,
@@ -227,7 +231,7 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const db = getDb();
-    const license = licenseStatus(db.license, db.nodes.length);
+    const license = licenseStatusFor(db, req.user);
     res.json({
       app: {
         name: 'lintasJB NMS',
@@ -343,7 +347,7 @@ router.get(
         return Boolean(a.projectId) && allowedIds.has(a.projectId);
       })
       .slice(0, 60);
-    const license = licenseStatus(db.license, db.nodes.length);
+    const license = licenseStatusFor(db, req.user);
     const ownerName = (p) => {
       if (!p.createdBy) return null;
       return db.users.find((u) => u.id === p.createdBy)?.name || null;
@@ -361,7 +365,7 @@ router.get(
       user: publicUser(req.user),
       settings: sanitizeSettings(db.settings, req.user),
       license,
-      licenseKey: ['superadmin', 'admin'].includes(req.user.role) ? db.license?.key || null : null,
+      licenseKey: keyForUser(db, req.user),
       basemaps: BASEMAPS,
       projects: accessible.map((p) => ({
         ...p,
@@ -568,7 +572,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const db = getDb();
     const project = resolveProject(req, { required: true });
-    assertNodeQuota(db.license, db.nodes.length);
+    assertNodeQuotaFor(db, req.user);
     const node = nodeFromBody(req.body, project);
     assertParent(db, node.parentId, project.id);
     if (db.nodes.some((n) => n.projectId === project.id && n.code && n.code === node.code)) {

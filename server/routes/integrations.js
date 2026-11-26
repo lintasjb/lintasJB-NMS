@@ -2,7 +2,7 @@ import express from 'express';
 import { getDb, save } from '../lib/store.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { seal, unseal, hasSecret } from '../lib/secret.js';
-import { licenseStatus, assertNodeQuota } from '../lib/license.js';
+import { licenseStatusFor, assertNodeQuota } from '../lib/license.js';
 import { createAlarm, nearestNode, pushActivity, resolveAlarmByKey, uid } from '../lib/faults.js';
 import { emitEvent } from '../lib/events.js';
 import { runMonitor, monitorStatus } from '../monitors.js';
@@ -112,7 +112,7 @@ router.get(
         : monitorStatus(),
       vendors: VENDORS,
       models: OLT_MODELS,
-      license: licenseStatus(db.license, db.nodes.length),
+      license: licenseStatusFor(db, req.user),
     });
   })
 );
@@ -227,7 +227,7 @@ router.post(
     let updated = 0;
     let created = 0;
     let skipped = 0;
-    const license = licenseStatus(db.license, db.nodes.length);
+    const license = licenseStatusFor(db, req.user);
     const capacity = Math.max(0, (license.maxNodes || 0) - db.nodes.length);
     const oltNode = db.nodes.find((n) => n.projectId === project.id && n.type === 'olt');
     const anchor = oltNode ? [oltNode.lat, oltNode.lng] : project.center;
@@ -657,7 +657,7 @@ router.post(
     );
     let created = 0;
     let linked = 0;
-    const license = licenseStatus(db.license, db.nodes.length);
+    const license = licenseStatusFor(db, req.user);
     const capacity = Math.max(0, (license.maxNodes || 0) - db.nodes.length);
     for (const onu of result.onus) {
       const existing = db.nodes.find(

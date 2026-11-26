@@ -266,6 +266,11 @@ Skema SQL opsional untuk analitik PostGIS tersedia di [`docs/postgis.sql`](docs/
 ## Lisensi
 
 - Setiap instalasi memakai **trial 30 hari** dengan kuota node.
+- Lisensi **tersimpan per akun pelanggan** (`userLicenses[userId]`). Superadmin memakai lisensi
+  utama dan melihat seluruh akun; kuota node dihitung dari project milik akun yang bersangkutan.
+- Form **Generate lisensi** menyediakan daftar pelanggan terdaftar. Kunci yang dibuat memuat
+  `customerId`/email, sehingga aktivasi melekat pada akun tersebut dan tidak bisa dipakai untuk
+  akun lain. Tagihan yang dibayar juga mengaktifkan lisensi ke akun pemesan.
 - Lisensi kustom ditandatangani **HMAC-SHA256** dan diikat ke `instanceId`.
 - **Pengaturan → Lisensi** menampilkan status, sisa hari, kuota, aktivasi, dan generator kunci
   (untuk penerbitan internal).

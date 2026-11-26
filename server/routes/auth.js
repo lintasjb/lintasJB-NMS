@@ -11,6 +11,7 @@ import {
 import { getDb, save } from '../lib/store.js';
 import { pushActivity } from '../lib/faults.js';
 import { seal, unseal } from '../lib/secret.js';
+import { createTrialLicense } from '../lib/license.js';
 import { createProject, cloneProject } from '../lib/projects.js';
 import { asyncHandler, cleanText, httpError, requireFields } from './helpers.js';
 import { ROLES } from '../lib/auth.js';
@@ -74,6 +75,9 @@ router.post(
       lastLoginAt: new Date().toISOString(),
     };
     db.users.push(user);
+    if (!db.userLicenses) db.userLicenses = {};
+    const trialLicense = createTrialLicense(company, user.id);
+    db.userLicenses[user.id] = { ...trialLicense.license, key: trialLicense.key };
 
     let project = null;
     if (db.projects.length && req.body.demo !== false) {
@@ -268,6 +272,9 @@ router.post(
       lastLoginAt: null,
     };
     db.users.push(user);
+    if (!db.userLicenses) db.userLicenses = {};
+    const trialLicense = createTrialLicense(user.company || user.name, user.id);
+    db.userLicenses[user.id] = { ...trialLicense.license, key: trialLicense.key };
     pushActivity(db, {
       userId: req.user.id,
       userName: req.user.name,
@@ -380,6 +387,7 @@ router.delete(
       throw httpError(400, 'Minimal satu superadmin harus tersedia.');
     }
     db.users = db.users.filter((u) => u.id !== req.params.id);
+    if (db.userLicenses) delete db.userLicenses[user.id];
     save();
     res.json({ ok: true });
   })

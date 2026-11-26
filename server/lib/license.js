@@ -74,7 +74,7 @@ export function verifyLicense(key) {
   return { valid: true, license: payload };
 }
 
-export function createTrialLicense(customer = 'lintasJB Demo') {
+export function createTrialLicense(customer = 'lintasJB Demo', customerId = '') {
   const now = new Date();
   const exp = new Date(now);
   exp.setDate(exp.getDate() + 30);
@@ -82,6 +82,7 @@ export function createTrialLicense(customer = 'lintasJB Demo') {
     v: 1,
     id: `LIC-${randomToken(6).toUpperCase()}`,
     customer,
+    ...(customerId ? { customerId } : {}),
     plan: 'trial',
     issuedAt: now.toISOString(),
     expiresAt: exp.toISOString(),
@@ -92,7 +93,7 @@ export function createTrialLicense(customer = 'lintasJB Demo') {
   return { key: signLicense(payload), license: payload };
 }
 
-export function generateLicense({ customer, plan = 'professional', months, maxNodes, features } = {}) {
+export function generateLicense({ customer, customerId = '', customerEmail = '', plan = 'professional', months, maxNodes, features } = {}) {
   const planDef = PLANS[plan] || PLANS.professional;
   const now = new Date();
   const exp = new Date(now);
@@ -101,6 +102,8 @@ export function generateLicense({ customer, plan = 'professional', months, maxNo
     v: 1,
     id: `LIC-${randomToken(6).toUpperCase()}`,
     customer: String(customer || 'lintasJB Customer').slice(0, 120),
+    ...(customerId ? { customerId: String(customerId) } : {}),
+    ...(customerEmail ? { customerEmail: String(customerEmail).slice(0, 160) } : {}),
     plan,
     issuedAt: now.toISOString(),
     expiresAt: exp.toISOString(),
@@ -160,4 +163,86 @@ export function assertNodeQuota(license, currentNodes) {
     err.status = 402;
     throw err;
   }
+}
+
+/* ---------------------------------------------------- lisensi per akun */
+
+/** Pastikan setiap pelanggan memiliki lisensi sendiri (migrasi sekali). */
+export function ensureUserLicenses(db) {
+  let changed = false;
+  if (!db.userLicenses || typeof db.userLicenses !== 'object' || Array.isArray(db.userLicenses)) {
+    db.userLicenses = {};
+    changed = true;
+  }
+  for (const user of db.users || []) {
+    if (user.role === 'superadmin' || user.demo || db.userLicenses[user.id]) continue;
+    const ownsProject = (db.projects || []).some((p) => p.createdBy === user.id);
+    if (!ownsProject) continue;
+    const source = db.license && db.license.id
+      ? structuredClone(db.license)
+      : createTrialLicense(user.company || user.name || user.email, user.id).license;
+    delete source.key;
+    const payload = {
+      ...source,
+      customerId: user.id,
+      customerEmail: user.email,
+      customer: user.company || user.name || user.email,
+    };
+    db.userLicenses[user.id] = { ...payload, key: signLicense(payload) };
+    changed = true;
+  }
+  return changed;
+}
+
+/** Lisensi yang berlaku untuk akun (superadmin memakai lisensi utama). */
+export function licenseFor(db, user) {
+  if (!user || user.role === 'superadmin') return db.license || null;
+  return db.userLicenses?.[user.id] || db.license || null;
+}
+
+/** Jumlah node milik akun; superadmin menghitung seluruh node. */
+export function nodeCountForLicense(db, user) {
+  if (!user || user.role === 'superadmin') return (db.nodes || []).length;
+  const ids = new Set((db.projects || []).filter((p) => p.createdBy === user.id).map((p) => p.id));
+  return (db.nodes || []).filter((n) => ids.has(n.projectId)).length;
+}
+
+export function licenseStatusFor(db, user) {
+  return licenseStatus(licenseFor(db, user), nodeCountForLicense(db, user));
+}
+
+export function keyForUser(db, user) {
+  if (!user) return null;
+  if (['superadmin', 'admin'].includes(user.role)) return db.license?.key || null;
+  return db.userLicenses?.[user.id]?.key || null;
+}
+
+export function assertNodeQuotaFor(db, user) {
+  return assertNodeQuota(licenseFor(db, user), nodeCountForLicense(db, user));
+}
+
+/** Simpan lisensi hasil aktivasi/generate ke akun yang dituju. */
+export function activateLicenseFor(db, user, license, key, { global = false } = {}) {
+  const stored = { ...license, key };
+  if (global || !user || user.role === 'superadmin') {
+    db.license = stored;
+  } else {
+    db.userLicenses = db.userLicenses || {};
+    db.userLicenses[user.id] = stored;
+  }
+  return stored;
+}
+
+export function customerOptions(db, requester) {
+  if (!['superadmin', 'admin'].includes(requester?.role)) return [];
+  return (db.users || [])
+    .filter((u) => !['superadmin', 'admin'].includes(u.role) && !u.demo && u.status !== 'disabled')
+    .map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      company: u.company || u.name,
+      role: u.role,
+      plan: db.userLicenses?.[u.id]?.plan || null,
+    }));
 }

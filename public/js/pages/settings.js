@@ -311,7 +311,8 @@ function licenseTab() {
       ${sectionHead('Aktivasi lisensi', 'Tempel kunci lisensi yang Anda terima untuk memperbarui paket.', 'shield')}
       <div class="settings-section__body">
         <form id="form-license" autocomplete="off">
-          <label class="field"><span>Kunci lisensi</span><textarea name="key" rows="3" placeholder="LJB1.eyJ...tanda-tangan" spellcheck="false"></textarea></label>
+          <label class="field"><span>Pelanggan tujuan</span><select name="customerId" id="license-activate-customer" data-placeholder="Lisensi utama / akun saya"><option value="">Lisensi utama / akun saya</option></select></label>
+          <label class="field mt-2"><span>Kunci lisensi</span><textarea name="key" rows="3" placeholder="LJB1.eyJ...tanda-tangan" spellcheck="false"></textarea></label>
           <div class="row mt-2"><button type="submit" class="btn btn-primary btn-sm">${icon('check')} Aktivasi lisensi</button><span class="muted" style="font-size:10px">Kunci diverifikasi secara lokal di server.</span></div>
         </form>
       </div>
@@ -322,7 +323,8 @@ function licenseTab() {
       <div class="settings-section__body">
         <form id="form-license-generate" autocomplete="off">
           <div class="form-grid">
-            ${field('Nama pelanggan', '<input name="customer" placeholder="PT Pelanggan Fiber" required />')}
+            ${field('Pelanggan', '<select name="customerId" id="license-customer" data-placeholder="— Pilih pelanggan terdaftar —"><option value="">— Pilih pelanggan terdaftar —</option></select>', 'Pilih akun yang akan diperpanjang; lisensi aktif akan melekat pada akun tersebut.')}
+            ${field('Nama pelanggan (opsional)', '<input name="customer" placeholder="Diisi bila bukan akun terdaftar" />')}
             <label class="field"><span>Paket</span><select name="plan">${PLANS.map((p) => `<option value="${p.value}">${esc(p.label)}</option>`).join('')}</select></label>
             ${field('Masa berlaku (bulan)', '<input name="months" type="number" min="1" max="120" value="12" />')}
             ${field('Kuota node', '<input name="maxNodes" type="number" min="1" max="100000" value="2500" />')}
@@ -1163,6 +1165,23 @@ async function bindLicense(content) {
     if (state.licenseKey) copyText(state.licenseKey);
   });
 
+  try {
+    const data = await api.auth.users();
+    const customers = (data.users || []).filter((u) =>
+      !['superadmin', 'admin'].includes(u.role) && !u.demo && u.status !== 'disabled'
+    );
+    for (const sel of [
+      content.querySelector('#license-customer'),
+      content.querySelector('#license-activate-customer'),
+    ]) {
+      if (!sel) continue;
+      const placeholder = sel.dataset.placeholder || '— Pilih —';
+      sel.innerHTML = `<option value="">${esc(placeholder)}</option>` + customers.map((u) =>
+        `<option value="${esc(u.id)}">${esc(u.company || u.name)} — ${esc(u.email)}</option>`
+      ).join('');
+    }
+  } catch { /* daftar tetap kosong bila gagal dimuat */ }
+
   const activateForm = content.querySelector('#form-license');
   activateForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -1171,12 +1190,15 @@ async function bindLicense(content) {
       toast.warn('Kunci kosong', 'Tempel kunci lisensi terlebih dahulu.');
       return;
     }
+    const customerId = activateForm.querySelector('[name="customerId"]')?.value || '';
     try {
-      const res = await api.post('/license/activate', { key });
+      const res = await api.post('/license/activate', { key, customerId });
       toast.success('Lisensi diaktivasi', res.message || 'Lisensi berhasil diaktivasi.');
-      state.license = res.license;
-      state.licenseKey = key;
-      requestRefresh();
+      if (!customerId) {
+        state.license = res.license;
+        state.licenseKey = key;
+        requestRefresh();
+      }
     } catch (err) {
       errorToast(err);
     }
@@ -1188,6 +1210,7 @@ async function bindLicense(content) {
     const values = formValues(generateForm);
     try {
       const res = await api.post('/license/generate', {
+        customerId: values.customerId || '',
         customer: values.customer,
         plan: values.plan,
         months: Number(values.months),
@@ -1199,15 +1222,16 @@ async function bindLicense(content) {
         resultEl.innerHTML = `<div class="locator-result">
           <div class="locator-result__head">${icon('key')} Kunci lisensi baru <span class="pill pill--ok" style="margin-left:auto">SIAP</span></div>
           <div class="license-key" style="margin-top:8px">${esc(res.key)}</div>
+          <p class="muted" style="font-size:10px;margin-top:6px">Untuk pelanggan: <b>${esc(res.license?.customer || '-')}</b></p>
           <div class="row mt-2">
             <button class="btn btn-xs btn-soft" data-copy-generated>${icon('copy')} Salin kunci</button>
-            ${res.active ? '<span class="muted" style="font-size:10px">Lisensi langsung diaktifkan di server ini.</span>' : ''}
+            ${res.active ? `<span class="muted" style="font-size:10px">Lisensi langsung diaktifkan untuk pelanggan ini.</span>` : ''}
           </div>
         </div>`;
         resultEl.querySelector('[data-copy-generated]')?.addEventListener('click', () => copyText(res.key));
       }
       toast.success('Lisensi dibuat', res.message || 'Kunci lisensi berhasil dibuat.');
-      if (res.active) requestRefresh();
+      if (res.active && !values.customerId) requestRefresh();
     } catch (err) {
       errorToast(err);
     }

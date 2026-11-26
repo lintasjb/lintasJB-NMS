@@ -3,10 +3,11 @@ import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { getDb, DATA_DIR } from './lib/store.js';
+import { getDb, DATA_DIR, save } from './lib/store.js';
 import { bus } from './lib/events.js';
 import { requireAuth } from './lib/auth.js';
 import { canAccessProject } from './routes/helpers.js';
+import { ensureUserLicenses } from './lib/license.js';
 import { getLicenseSecret } from './lib/secret.js';
 import { scheduleMonitor, monitorStatus } from './monitors.js';
 import authRoutes from './routes/auth.js';
@@ -204,6 +205,7 @@ app.use((err, req, res, next) => {
 // Boot
 // ---------------------------------------------------------------------------
 const db = getDb();
+if (ensureUserLicenses(db)) save();
 app.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('  ██╗   ██╗ ███╗   ██╗████████╗ █████╗ ███████╗     ██╗██████╗ ');

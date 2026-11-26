@@ -3,7 +3,12 @@ import express from 'express';
 import QRCode from 'qrcode';
 import { getDb, save } from '../lib/store.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
-import { generateLicense, licenseStatus, PLANS } from '../lib/license.js';
+import {
+  activateLicenseFor,
+  generateLicense,
+  licenseStatusFor,
+  PLANS,
+} from '../lib/license.js';
 import { pricingOf } from '../lib/pricing.js';
 import { pushActivity } from '../lib/faults.js';
 import { emitEvent } from '../lib/events.js';
@@ -309,8 +314,11 @@ router.post(
     if (order.status === 'cancelled') throw httpError(409, 'Tagihan sudah dibatalkan.');
     if (order.status === 'expired') throw httpError(409, 'Tagihan sudah kedaluwarsa. Buat tagihan baru.');
 
+    const owner = db.users.find((u) => u.id === order.userId) || null;
     const generated = generateLicense({
-      customer: order.customer,
+      customer: owner ? owner.company || owner.name : order.customer,
+      customerId: owner?.id || '',
+      customerEmail: owner?.email || '',
       plan: order.plan,
       months: order.months,
       maxNodes: order.maxNodes,
@@ -322,7 +330,7 @@ router.post(
     order.licenseId = generated.license.id;
     order.licenseKey = generated.key;
     if (activate) {
-      db.license = { ...generated.license, key: generated.key };
+      activateLicenseFor(db, owner, generated.license, generated.key, { global: !owner });
     }
     pushActivity(db, {
       userId: req.user.id,
@@ -333,12 +341,12 @@ router.post(
     });
     save();
     emitEvent('billing', { order: { id: order.id, invoiceNo: order.invoiceNo, status: order.status }, actorId: req.user.id });
-    if (activate) emitEvent('license', { license: licenseStatus(db.license, db.nodes.length) });
+    if (activate) emitEvent('license', { license: licenseStatusFor(db, req.user) });
     res.json({
       order: serialize(db, order, req.user),
       key: generated.key,
       license: generated.license,
-      active: activate ? licenseStatus(db.license, db.nodes.length) : null,
+      active: activate ? licenseStatusFor(db, req.user) : null,
       message: activate
         ? 'Pembayaran diverifikasi dan lisensi langsung diaktifkan.'
         : 'Pembayaran diverifikasi. Kunci lisensi siap diaktivasi manual.',

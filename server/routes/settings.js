@@ -5,7 +5,17 @@ import path from 'node:path';
 import { getDb, save } from '../lib/store.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { seal, DATA_DIR } from '../lib/secret.js';
-import { generateLicense, licenseStatus, PLANS, verifyLicense, FEATURES } from '../lib/license.js';
+import {
+  activateLicenseFor,
+  customerOptions,
+  generateLicense,
+  keyForUser,
+  licenseStatus,
+  licenseStatusFor,
+  PLANS,
+  verifyLicense,
+  FEATURES,
+} from '../lib/license.js';
 import { pushActivity } from '../lib/faults.js';
 import { emitEvent } from '../lib/events.js';
 import { scheduleMonitor } from '../monitors.js';
@@ -230,11 +240,22 @@ router.get(
   asyncHandler(async (req, res) => {
     const db = getDb();
     res.json({
-      license: licenseStatus(db.license, db.nodes.length),
-      key: ['superadmin', 'admin'].includes(req.user.role) ? db.license?.key || null : null,
+      license: licenseStatusFor(db, req.user),
+      key: keyForUser(db, req.user),
       plans: PLANS,
       features: FEATURES,
+      customers: customerOptions(db, req.user),
     });
+  })
+);
+
+router.get(
+  '/license/customers',
+  requireAuth,
+  requireRole('superadmin', 'admin'),
+  asyncHandler(async (req, res) => {
+    const db = getDb();
+    res.json({ customers: customerOptions(db, req.user) });
   })
 );
 
@@ -248,18 +269,26 @@ router.post(
     if (!key) throw httpError(400, 'Kunci lisensi wajib diisi.');
     const result = verifyLicense(key);
     if (!result.valid) throw httpError(400, result.reason || 'Lisensi tidak valid.');
-    db.license = { ...result.license, key };
+    const requestedId = cleanText(req.body.customerId, 80);
+    const embeddedId = cleanText(result.license.customerId, 80);
+    if (requestedId && embeddedId && requestedId !== embeddedId) {
+      throw httpError(400, 'Kunci lisensi ini ditujukan untuk pelanggan lain.');
+    }
+    const targetId = requestedId || embeddedId;
+    const target = targetId ? db.users.find((u) => u.id === targetId) : null;
+    if (targetId && !target) throw httpError(404, 'Pelanggan tidak ditemukan.');
+    activateLicenseFor(db, target, result.license, key, { global: !targetId });
     pushActivity(db, {
       userId: req.user.id,
       userName: req.user.name,
       action: 'license.activate',
-      detail: `Aktivasi lisensi ${result.license.plan} untuk ${result.license.customer}.`,
+      detail: `Aktivasi lisensi ${result.license.plan} untuk ${target ? target.name : result.license.customer}.`,
     });
     save();
-    emitEvent('license', { license: licenseStatus(db.license, db.nodes.length) });
+    emitEvent('license', { license: licenseStatusFor(db, req.user) });
     res.json({
-      license: licenseStatus(db.license, db.nodes.length),
-      message: 'Lisensi berhasil diaktivasi.',
+      license: target ? licenseStatusFor(db, target) : licenseStatusFor(db, req.user),
+      message: `Lisensi berhasil diaktivasi untuk ${target ? target.name : 'lisensi utama'}.`,
     });
   })
 );
@@ -270,29 +299,39 @@ router.post(
   requireRole('superadmin', 'admin'),
   asyncHandler(async (req, res) => {
     const db = getDb();
-    requireFields(req.body, ['customer']);
+    const customerId = cleanText(req.body.customerId, 80);
+    const target = customerId ? db.users.find((u) => u.id === customerId) : null;
+    if (customerId && !target) throw httpError(404, 'Pelanggan tidak ditemukan.');
+    const customer = target
+      ? target.company || target.name
+      : cleanText(req.body.customer, 120);
+    if (!customer) throw httpError(400, 'Pelanggan wajib dipilih atau diisi.');
     const generated = generateLicense({
-      customer: cleanText(req.body.customer, 120),
+      customer,
+      customerId: target?.id || '',
+      customerEmail: target?.email || '',
       plan: req.body.plan,
       months: req.body.months,
       maxNodes: req.body.maxNodes,
       features: Array.isArray(req.body.features) ? req.body.features.filter((f) => FEATURES.includes(f)) : undefined,
     });
     if (req.body.activate) {
-      db.license = { ...generated.license, key: generated.key };
-      emitEvent('license', { license: licenseStatus(db.license, db.nodes.length) });
+      activateLicenseFor(db, target, generated.license, generated.key, { global: !target });
+      emitEvent('license', { license: licenseStatusFor(db, req.user) });
     }
     pushActivity(db, {
       userId: req.user.id,
       userName: req.user.name,
       action: 'license.generate',
-      detail: `Generate lisensi ${generated.license.plan} untuk ${generated.license.customer}.`,
+      detail: `Generate lisensi ${generated.license.plan} untuk ${customer}${target ? ` (${target.email})` : ''}.`,
     });
     save();
     res.json({
       key: generated.key,
       license: generated.license,
-      active: licenseStatus(db.license, db.nodes.length),
+      active: req.body.activate
+        ? (target ? licenseStatusFor(db, target) : licenseStatusFor(db, req.user))
+        : null,
       message: 'Kunci lisensi berhasil dibuat.',
     });
   })

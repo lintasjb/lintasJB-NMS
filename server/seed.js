@@ -377,6 +377,9 @@ export function buildSeed() {
     ], { fiberCount: 8, usedFibers: 1 }),
   ];
 
+  const operatorTrial = createTrialLicense('PT Lintas Jaringan Bersama', 'usr_operator');
+  const demoTrial = createTrialLicense('lintasJB Demo', 'usr_demo');
+
   return {
     meta: {
       version: 1,
@@ -384,6 +387,10 @@ export function buildSeed() {
       createdAt: now(),
       seededAt: now(),
       instanceId: randomToken(8),
+    },
+    userLicenses: {
+      usr_operator: { ...operatorTrial.license, key: operatorTrial.key },
+      usr_demo: { ...demoTrial.license, key: demoTrial.key },
     },
     users: [
       {
