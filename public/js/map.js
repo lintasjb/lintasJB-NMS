@@ -24,6 +24,7 @@ export function createMap(container, options = {}) {
   const settingsMap = state.settings?.map || {};
   let center = project?.center || settingsMap.center || [-8.2, 114.02];
   let zoom = project?.zoom || settingsMap.zoom || 10;
+  let restoredView = false;
 
   if (!opts.mini && project?.id) {
     try {
@@ -31,6 +32,7 @@ export function createMap(container, options = {}) {
       if (saved && Number.isFinite(saved.lat)) {
         center = [saved.lat, saved.lng];
         zoom = saved.zoom;
+        restoredView = true;
       }
     } catch { /* ignore */ }
   }
@@ -792,6 +794,8 @@ export function createMap(container, options = {}) {
     refreshFilters,
     setBasemap,
     getBasemap: () => currentBasemap,
+    hasSavedView: () => restoredView,
+    getView: () => ({ center: [map.getCenter().lat, map.getCenter().lng], zoom: map.getZoom() }),
     fit,
     flyToNode,
     focusCable,

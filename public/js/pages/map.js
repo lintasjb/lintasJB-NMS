@@ -268,6 +268,15 @@ export async function render(view) {
   });
 
   ctl.invalidate();
+  const viewNow = ctl.getView();
+  const zoomLabel = view.querySelector('#zoom-label');
+  if (zoomLabel) zoomLabel.textContent = Number(viewNow.zoom).toFixed(1);
+  const coordZoom = view.querySelector('#coord-zoom');
+  if (coordZoom) coordZoom.textContent = Number(viewNow.zoom).toFixed(2);
+  const coordLat = view.querySelector('#coord-lat');
+  const coordLng = view.querySelector('#coord-lng');
+  if (coordLat) coordLat.textContent = Number(viewNow.center[0]).toFixed(6);
+  if (coordLng) coordLng.textContent = Number(viewNow.center[1]).toFixed(6);
   const focus = takeFocus();
   if (focus?.kind === 'node') {
     setTimeout(() => ctl.flyToNode(focus.id), 180);
@@ -277,7 +286,7 @@ export async function render(view) {
     setTimeout(() => ctl.focusFault(focus.id), 180);
   } else if (focus?.kind === 'point' && Array.isArray(focus.point)) {
     setTimeout(() => ctl.flyToPoint(focus.point, { label: 'Titik yang dicari' }), 180);
-  } else if (state.nodes.length) {
+  } else if (state.nodes.length && !ctl.hasSavedView()) {
     ctl.fit({ padding: [50, 50], animate: false });
   }
 

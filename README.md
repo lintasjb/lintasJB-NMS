@@ -45,6 +45,7 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
 - **Rute kabel** dengan gambar polyline di peta, panjang geodesic otomatis, jumlah core, dan utilisasi.
 - Marker gangguan berdenyut, overlay peringatan, sorotan kabel putus, dan efek suara alarm.
 - **Lokasi saya** (geolocation), ambil titik koordinat, pencarian global `Ctrl+K`, dan mode layar penuh.
+- Posisi dan zoom peta disimpan per project; refresh data realtime tidak mengembalikan tampilan ke posisi awal.
 - Pilihan layer per tipe node/kabel, label node, dan marker gangguan.
 
 ### Operasional
