@@ -757,7 +757,7 @@ function groupMethods(methods) {
 }
 
 function billingMarkup(data, selectedId) {
-  const methods = data.methods || [];
+  const methods = (data.methods || []).filter((m) => m.enabled !== false);
   const plans = data.plans || [];
   const suggestions = data.priceSuggestions || {};
   const config = data.config || {};
@@ -841,6 +841,17 @@ function billingMarkup(data, selectedId) {
             <label class="field"><span>Atas nama ${bank.toUpperCase()}</span><input name="acc_${bank}_holder" value="${esc(config.accounts?.[bank]?.holder || '')}" placeholder="Nama pemilik rekening" /></label>`).join('')}
           </div>
           <label class="field mt-2"><span>Catatan pembayaran</span><textarea name="note" rows="2">${esc(config.note || '')}</textarea></label>
+          <div class="method-settings mt-2">
+            <b>Metode pembayaran yang aktif</b>
+            <p class="muted" style="font-size:10px">Centang metode yang boleh dipakai pelanggan. Metode yang tidak dicentang akan disembunyikan dari form tagihan.</p>
+            ${groupMethods(data.methods || []).map((group) => `<div class="method-settings__group">
+              <span>${esc(group.name)}</span>
+              <div class="method-settings__grid">${group.items.map((m) => `<label class="method-toggle">
+                <input type="checkbox" data-method-toggle value="${esc(m.id)}" ${m.enabled !== false ? 'checked' : ''} />
+                <span>${esc(m.label)}</span>
+              </label>`).join('')}</div>
+            </div>`).join('')}
+          </div>
           <div class="row mt-2"><button type="submit" class="btn btn-soft btn-sm">${icon('save')} Simpan data pembayaran</button></div>
         </form>
       </div>
@@ -1047,6 +1058,10 @@ async function bindBilling(content) {
         };
       }
       try {
+        const enabled = [...form.querySelectorAll('[data-method-toggle]')]
+          .filter((input) => input.checked).map((input) => input.value);
+        const disabledMethods = (data.methods || [])
+          .map((m) => m.id).filter((id) => !enabled.includes(id));
         const res = await api.put('/billing/config', {
           merchantName: values.merchantName,
           merchantCity: values.merchantCity,
@@ -1056,7 +1071,10 @@ async function bindBilling(content) {
           merchantId: values.merchantId,
           note: values.note,
           accounts,
+          disabledMethods,
         });
+        const disabled = new Set(res.config?.disabledMethods || []);
+        data.methods = (data.methods || []).map((m) => ({ ...m, enabled: !disabled.has(m.id) }));
         data.config = res.config || data.config;
         toast.success('Tersimpan', res.message || 'Data pembayaran diperbarui.');
         renderAll();

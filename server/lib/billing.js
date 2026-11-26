@@ -150,11 +150,13 @@ export const PRICE_SUGGESTIONS = {
 
 export function billingConfig(settings) {
   const s = settings?.billing || {};
+  const validIds = new Set(PAYMENT_METHODS.map((m) => m.id));
   return {
     ...DEFAULT_BILLING,
     ...s,
     accounts: { ...DEFAULT_BILLING.accounts, ...(s.accounts || {}) },
     note: s.note || DEFAULT_BILLING.note,
+    disabledMethods: [...new Set((Array.isArray(s.disabledMethods) ? s.disabledMethods : []).filter((id) => validIds.has(id)))],
   };
 }
 

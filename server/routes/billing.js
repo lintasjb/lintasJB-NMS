@@ -113,8 +113,9 @@ router.get(
     const priceSuggestions = Object.fromEntries(
       plans.map((p) => [p.id, p.yearly || p.monthly || 0]).filter(([, value]) => value > 0)
     );
+    const disabled = new Set(billingConfig(db.settings).disabledMethods);
     res.json({
-      methods: PAYMENT_METHODS,
+      methods: PAYMENT_METHODS.map((m) => ({ ...m, enabled: !disabled.has(m.id) })),
       config: billingConfig(db.settings),
       priceSuggestions: Object.keys(priceSuggestions).length ? priceSuggestions : PRICE_SUGGESTIONS,
       plans,
@@ -136,6 +137,13 @@ router.put(
     const body = req.body || {};
     const current = billingConfig(db.settings);
     const accounts = { ...current.accounts };
+    const validIds = new Set(PAYMENT_METHODS.map((m) => m.id));
+    const disabledMethods = Array.isArray(body.disabledMethods)
+      ? [...new Set(body.disabledMethods.map(String).filter((id) => validIds.has(id)))]
+      : current.disabledMethods;
+    if (disabledMethods.length >= PAYMENT_METHODS.length) {
+      throw httpError(400, 'Minimal satu metode pembayaran harus tetap aktif.');
+    }
     if (body.accounts && typeof body.accounts === 'object') {
       for (const [key, value] of Object.entries(body.accounts)) {
         if (!['bca', 'bni', 'bri', 'mandiri'].includes(key) || !value || typeof value !== 'object') continue;
@@ -153,13 +161,14 @@ router.put(
       supportPhone: cleanText(body.supportPhone, 40) || current.supportPhone,
       ewalletNumber: cleanText(body.ewalletNumber, 40) || current.ewalletNumber,
       note: cleanText(body.note, 300) || current.note,
+      disabledMethods,
       accounts,
     };
     pushActivity(db, {
       userId: req.user.id,
       userName: req.user.name,
       action: 'billing.config',
-      detail: 'Memperbarui data merchant & rekening pembayaran.',
+      detail: `Memperbarui data merchant & rekening; ${disabledMethods.length} metode pembayaran dinonaktifkan.`,
     });
     save();
     res.json({ ok: true, config: billingConfig(db.settings), message: 'Data pembayaran disimpan.' });
@@ -191,6 +200,9 @@ router.post(
     requireFields(req.body, ['customer', 'email', 'method']);
     const method = methodById(String(req.body.method));
     if (!method) throw httpError(400, 'Metode pembayaran tidak dikenali.');
+    if (billingConfig(db.settings).disabledMethods.includes(method.id)) {
+      throw httpError(400, 'Metode pembayaran ini sedang dinonaktifkan.');
+    }
     const plan = PLANS[req.body.plan] ? String(req.body.plan) : 'professional';
     const months = clampNumber(req.body.months, 1, 120, PLANS[plan].months);
     const maxNodes = clampNumber(req.body.maxNodes, 1, 100000, PLANS[plan].maxNodes);

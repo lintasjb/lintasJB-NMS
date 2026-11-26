@@ -266,6 +266,9 @@ Skema SQL opsional untuk analitik PostGIS tersedia di [`docs/postgis.sql`](docs/
   - Nama pelanggan, email, WhatsApp, paket, masa berlaku, dan kuota node.
   - **Harga kustom** (minimal Rp 10.000) + tombol harga cepat per paket.
   - Metode pembayaran: QRIS, transfer bank, virtual account, e-wallet, dan gerai retail.
+  - **Aktif/nonaktifkan metode pembayaran** dari **Pengaturan merchant**: centang metode yang
+    boleh dipakai; metode yang dimatikan hilang dari form tagihan dan ditolak oleh API. Minimal
+    satu metode harus tetap aktif.
   - Biaya layanan dihitung server (persen untuk QRIS/e-wallet, flat untuk VA/retail).
   - Invoice 24 jam berisi kode bayar / nomor VA / QR PNG, instruksi, dan riwayat tagihan.
   - Admin dapat **memverifikasi pembayaran** (lisensi langsung dibuat & diaktifkan) atau membatalkan tagihan.
