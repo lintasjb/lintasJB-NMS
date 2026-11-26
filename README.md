@@ -290,7 +290,8 @@ Batasan akses:
   superadmin, mengubah harga, atau mengunduh backup.
 - `operator`/`viewer` tidak melihat menu Admin Panel dan mendapat `403` dari API admin.
 - Harga tersimpan di `settings.pricing` (`{ currency: 'IDR', plans: [...] }`) dan dipakai oleh
-  `/api/billing/config` untuk menampilkan harga paket.
+  `/api/billing/config` untuk daftar paket, kuota node, harga cepat bulanan/tahunan, dan nominal
+  awal pada form pembelian lisensi. Perubahan langsung tampil tanpa mengubah kode.
 
 Contoh endpoint:
 

@@ -838,7 +838,7 @@ async function loadPricing(el) {
   el.innerHTML = `<section class="settings-section">
     <div class="settings-section__head"><h3>${icon('credit-card')} Harga & paket lisensi</h3><p>Atur harga dalam Rupiah untuk periode bulanan dan tahunan.</p></div>
     <div class="settings-section__body">
-      <div class="admin-note">${icon('info')} <span>Mata uang: <b>IDR (Rupiah)</b>. ${editable ? 'Perubahan hanya tersimpan setelah menekan Simpan.' : 'Hanya superadmin yang dapat mengubah harga.'}</span></div>
+      <div class="admin-note">${icon('info')} <span>Mata uang: <b>IDR (Rupiah)</b>. Harga dan kuota node di sini dipakai sebagai harga cepat serta paket pada form pembelian lisensi. ${editable ? 'Perubahan hanya tersimpan setelah menekan Simpan.' : 'Hanya superadmin yang dapat mengubah harga.'}</span></div>
       <div id="ap-list" class="admin-price-list">${pricing.plans.map((p) => priceCard(p, editable)).join('')}</div>
       ${editable ? `<button type="button" class="btn btn-soft btn-sm mt-2" id="ap-add">${icon('plus')} Tambah paket</button>` : ''}
     </div>

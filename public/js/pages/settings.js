@@ -764,7 +764,7 @@ function billingMarkup(data, selectedId) {
   const groups = groupMethods(methods);
   const selected = methods.find((m) => m.id === selectedId) || methods[0];
   const planDef = plans.find((p) => p.id === 'professional') || plans[0] || { id: 'professional', months: 12, maxNodes: 2500 };
-  const amount = Number(suggestions[planDef.id]) || 12000000;
+  const amount = Number(planDef.yearly || suggestions[planDef.id]) || 12000000;
   const customer = state.user?.company || state.settings?.branding?.companyName || state.user?.name || '';
   const email = state.user?.email || '';
   const phone = state.user?.phone || '';
@@ -775,7 +775,10 @@ function billingMarkup(data, selectedId) {
         ${field('Nama pelanggan / perusahaan', `<input name="customer" value="${esc(customer)}" placeholder="PT Pelanggan Fiber" required />`)}
         ${field('Email tagihan', `<input name="email" type="email" value="${esc(email)}" placeholder="billing@perusahaan.id" required />`)}
         ${field('No. WhatsApp', `<input name="phone" value="${esc(phone)}" placeholder="0812xxxxxxx" />`)}
-        ${field('Paket lisensi', `<select name="plan">${plans.map((p) => `<option value="${esc(p.id)}" ${p.id === planDef.id ? 'selected' : ''}>${esc(p.label)} — ${fmt.num(p.maxNodes)} node / ${p.months} bln</option>`).join('')}</select>`)}
+        ${field('Paket lisensi', `<select name="plan">${plans.map((p) => {
+          const price = Number(p.yearly || p.monthly || suggestions[p.id]) || 0;
+          return `<option value="${esc(p.id)}" ${p.id === planDef.id ? 'selected' : ''}>${esc(p.label)} — ${fmt.num(p.maxNodes)} node / ${p.months} bln${price ? ` · ${rupiah(price)}` : ''}</option>`;
+        }).join('')}</select>`)}
         ${field('Harga kustom (Rp)', `<input name="amount" type="number" inputmode="numeric" min="10000" max="1000000000" step="1000" value="${amount}" required data-amount />`, 'Bebas menentukan harga, minimal Rp 10.000.')}
         ${field('Masa berlaku (bulan)', `<input name="months" type="number" min="1" max="120" value="${planDef.months}" />`)}
         ${field('Kuota node', `<input name="maxNodes" type="number" min="1" max="100000" value="${planDef.maxNodes}" />`)}
@@ -783,10 +786,13 @@ function billingMarkup(data, selectedId) {
 
       <div class="price-chips">
         <span class="price-chips__label">${icon('sparkles')} Harga cepat</span>
-        ${plans.map((p) => {
-          const value = Number(suggestions[p.id]) || 0;
-          if (!value) return '';
-          return `<button type="button" class="chip" data-price="${value}" data-price-plan="${esc(p.id)}">${esc(p.label)} · ${rupiah(value)}</button>`;
+        ${plans.flatMap((p) => {
+          const monthly = Number(p.monthly) || 0;
+          const yearly = Number(p.yearly || suggestions[p.id]) || 0;
+          const chips = [];
+          if (monthly) chips.push({ value: monthly, months: 1, label: `${p.label} · ${rupiah(monthly)}/bln` });
+          if (yearly) chips.push({ value: yearly, months: p.months || 12, label: `${p.label} · ${rupiah(yearly)}/thn` });
+          return chips.map((c) => `<button type="button" class="chip" data-price="${c.value}" data-price-plan="${esc(p.id)}" data-price-months="${c.months}">${esc(c.label)}</button>`);
         }).join('')}
       </div>
 
@@ -958,7 +964,7 @@ async function bindBilling(content) {
       if (plan) {
         form.querySelector('[name="months"]').value = plan.months;
         form.querySelector('[name="maxNodes"]').value = plan.maxNodes;
-        const suggested = Number(data.priceSuggestions?.[plan.id]) || 0;
+        const suggested = Number(plan.yearly || plan.monthly || data.priceSuggestions?.[plan.id]) || 0;
         if (suggested) form.querySelector('[data-amount]').value = suggested;
       }
       updateSummary();
@@ -981,7 +987,7 @@ async function bindBilling(content) {
         const plan = data.plans?.find((p) => p.id === planId);
         if (plan) {
           form.querySelector('[name="plan"]').value = plan.id;
-          form.querySelector('[name="months"]').value = plan.months;
+          form.querySelector('[name="months"]').value = Number(btn.dataset.priceMonths) || plan.months;
           form.querySelector('[name="maxNodes"]').value = plan.maxNodes;
         }
         updateSummary();

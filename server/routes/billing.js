@@ -91,22 +91,33 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const db = getDb();
+    const pricing = pricingOf(db.settings);
+    const merged = new Map(
+      Object.entries(PLANS).map(([id, plan]) => [
+        id,
+        { id, label: plan.label, maxNodes: plan.maxNodes, months: plan.months, monthly: null, yearly: null, currency: 'IDR' },
+      ])
+    );
+    for (const item of pricing.plans) {
+      const base = merged.get(item.id) || { id: item.id, months: 12, currency: 'IDR' };
+      merged.set(item.id, {
+        ...base,
+        label: item.name || base.label,
+        maxNodes: item.maxNodes,
+        monthly: item.monthly,
+        yearly: item.yearly,
+        currency: 'IDR',
+      });
+    }
+    const plans = [...merged.values()];
+    const priceSuggestions = Object.fromEntries(
+      plans.map((p) => [p.id, p.yearly || p.monthly || 0]).filter(([, value]) => value > 0)
+    );
     res.json({
       methods: PAYMENT_METHODS,
       config: billingConfig(db.settings),
-      priceSuggestions: PRICE_SUGGESTIONS,
-      plans: Object.entries(PLANS).map(([id, plan]) => {
-        const custom = pricingOf(db.settings).plans.find((p) => p.id === id);
-        return {
-          id,
-          label: plan.label,
-          maxNodes: plan.maxNodes,
-          months: plan.months,
-          monthly: custom ? custom.monthly : null,
-          yearly: custom ? custom.yearly : null,
-          currency: 'IDR',
-        };
-      }),
+      priceSuggestions: Object.keys(priceSuggestions).length ? priceSuggestions : PRICE_SUGGESTIONS,
+      plans,
       orders: (db.orders || [])
         .filter((o) => isAdmin(req.user) || o.userId === req.user.id)
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
