@@ -7,6 +7,7 @@ const SOUND_KEY = 'lintasjb.sound';
 const defaultFilters = {
   nodes: { pop: true, router: true, server: true, olt: true, odc: true, odp: true, ont: true, closure: true },
   cables: { backbone: true, feeder: true, distribution: true, drop: true },
+  splices: true,
   labels: true,
   animate: true,
   faults: true,
@@ -48,6 +49,7 @@ export const state = {
   cables: [],
   faults: [],
   alarms: [],
+  splices: [],
   stats: {},
   activity: [],
   integrations: { genieacs: { devices: [], faults: [] }, olts: [], routers: [], cacheOlts: {}, cacheRouters: {} },
@@ -140,6 +142,7 @@ export function applyBootstrap(data) {
   state.cables = data.cables || [];
   state.faults = data.faults || [];
   state.alarms = data.alarms || [];
+  state.splices = data.splices || [];
   state.stats = data.stats || {};
   state.activity = data.activity || [];
   state.integrations = data.integrations || state.integrations;

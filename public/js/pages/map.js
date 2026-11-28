@@ -2,8 +2,8 @@
 import * as api from '../api.js';
 import { state, availableBasemaps, basemapById, nodeById, cableById, faultForCable, nodeTypeCounts, saveFilters } from '../state.js';
 import {
-  esc, icon, fmt, toast, errorToast, modal, NODE_TYPES, CABLE_TYPES, ANIMATIONS,
-  copyText, fmt as f,
+  esc, icon, fmt, toast, errorToast, modal, formValues, confirmDialog,
+  NODE_TYPES, CABLE_TYPES, ANIMATIONS, copyText, fmt as f,
 } from '../ui.js';
 import { createMap } from '../map.js';
 import { openNodeModal, openCableModal, openNodeDrawer, openCableDrawer, requestRefresh } from '../forms.js';
@@ -55,6 +55,7 @@ export async function render(view) {
       </div>
       <button class="mt-btn" data-tip="Gambar rute kabel" data-action="draw">${icon('cable')}</button>
       <button class="mt-btn" data-tip="Edit rute kabel" data-action="edit-route">${icon('edit')}</button>
+      <button class="mt-btn" data-tip="Tambah sambungan serat" data-action="add-splice">${icon('link')}</button>
       ${canEditNodes ? `<button class="mt-btn" data-tip="Pindahkan titik node" data-action="move-node">${icon('pin')}</button>` : ''}
       <div class="mt-sep"></div>
       <button class="mt-btn" data-tip="Lokasi saya" data-action="locate">${icon('navigation')}</button>
@@ -99,6 +100,10 @@ export async function render(view) {
               <label class="check"><input type="checkbox" data-layer-cable="${type}" ${state.filters.cables[type] !== false ? 'checked' : ''}/><span class="layer-dot" style="background:${meta.color}"></span><span>${esc(meta.label)}</span></label>
               <span class="layer-count">${state.cables.filter((c) => c.type === type).length}</span>
             </div>`).join('')}
+          </div>
+          <div class="layer-group">
+            <div class="layer-group__title">Sambungan (${state.splices.length})</div>
+            <div class="layer-row"><label class="check"><input type="checkbox" data-layer-splice ${state.filters.splices === false ? '' : 'checked'}/><span class="layer-dot" style="background:#a78bfa"></span><span>Titik sambung</span></label><span class="layer-count">${state.splices.length}</span></div>
           </div>
           <div class="layer-group">
             <div class="layer-group__title">Tampilan</div>
@@ -172,6 +177,106 @@ export async function render(view) {
       onCancel: () => clearDrawbar(),
     });
     toolbar.querySelector('[data-action="draw"]')?.classList.remove('active');
+  };
+
+  const cableOptions = (selected = '') => `<option value="">- Pilih kabel -</option>${state.cables.map((c) => `<option value="${esc(c.id)}" ${c.id === selected ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}`;
+
+  const openSpliceModal = (splice = null, latlng = null) => {
+    const editing = Boolean(splice);
+    const lat = splice?.lat ?? latlng?.[0] ?? state.project?.center?.[0] ?? 0;
+    const lng = splice?.lng ?? latlng?.[1] ?? state.project?.center?.[1] ?? 0;
+    const body = `<form id="splice-form" autocomplete="off">
+      <div class="form-grid">
+        <label class="field"><span>Nama sambungan</span><input name="name" value="${esc(splice?.name || '')}" placeholder="Sambungan ODC-ODP-01" required /></label>
+        <label class="field"><span>Metode</span><select name="method"><option value="fusion" ${splice?.method !== 'mechanical' ? 'selected' : ''}>Fusion splice</option><option value="mechanical" ${splice?.method === 'mechanical' ? 'selected' : ''}>Mechanical</option></select></label>
+      </div>
+      <div class="form-grid mt-2">
+        <label class="field"><span>Status</span><select name="status"><option value="done" ${splice?.status !== 'planned' && splice?.status !== 'issue' ? 'selected' : ''}>Selesai</option><option value="planned" ${splice?.status === 'planned' ? 'selected' : ''}>Rencana</option><option value="issue" ${splice?.status === 'issue' ? 'selected' : ''}>Masalah</option></select></label>
+        <label class="field"><span>Redaman sambungan (dB)</span><input name="lossDb" type="number" min="0" max="30" step="0.01" value="${splice?.lossDb ?? 0.1}" /></label>
+      </div>
+      <div class="form-grid mt-2">
+        <label class="field"><span>Kabel sisi A</span><select name="cableFromId">${cableOptions(splice?.cableFromId)}</select></label>
+        <label class="field"><span>Core A</span><input name="coreFrom" value="${esc(splice?.coreFrom || '')}" placeholder="Core 12 / Merah" /></label>
+      </div>
+      <div class="form-grid mt-2">
+        <label class="field"><span>Kabel sisi B</span><select name="cableToId">${cableOptions(splice?.cableToId)}</select></label>
+        <label class="field"><span>Core B</span><input name="coreTo" value="${esc(splice?.coreTo || '')}" placeholder="Core 7 / Biru" /></label>
+      </div>
+      <div class="form-grid mt-2">
+        <label class="field"><span>Tanggal pengerjaan</span><input name="at" value="${esc(splice?.at || '')}" placeholder="2026-11-28" /></label>
+      </div>
+      <label class="field mt-2"><span>Catatan</span><textarea name="notes" rows="2" placeholder="Hasil OTDR, petugas, atau keterangan lapangan">${esc(splice?.notes || '')}</textarea></label>
+      <p class="muted mt-2" style="font-size:10px">Koordinat: ${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}</p>
+    </form>`;
+    modal({
+      title: editing ? 'Edit sambungan' : 'Tambah sambungan',
+      subtitle: editing ? splice.name : 'Catat titik sambung dan pemetaan core serat',
+      iconName: 'link',
+      size: 'md',
+      body,
+      footer: `${editing && canEditNodes ? '<button type="button" class="btn btn-xs btn-danger" data-splice-delete>Hapus</button>' : ''}
+        <button type="button" class="btn btn-soft" data-modal-close>Batal</button>
+        ${canEditNodes ? `<button type="button" class="btn btn-primary" data-splice-save>${icon('save')} Simpan</button>` : ''}`,
+      onMount(ui, root) {
+        root.querySelector('[data-splice-save]')?.addEventListener('click', async () => {
+          const form = root.querySelector('#splice-form');
+          if (!form.reportValidity()) return;
+          const values = formValues(form);
+          const payload = {
+            projectId: state.projectId,
+            lat: Number(lat), lng: Number(lng),
+            name: values.name,
+            method: values.method,
+            status: values.status,
+            lossDb: Number(values.lossDb) || 0,
+            cableFromId: values.cableFromId || '',
+            cableToId: values.cableToId || '',
+            coreFrom: values.coreFrom || '',
+            coreTo: values.coreTo || '',
+            at: values.at || '',
+            notes: values.notes || '',
+          };
+          const btn = root.querySelector('[data-splice-save]');
+          btn.disabled = true;
+          try {
+            if (editing) await api.put(`/splices/${splice.id}`, payload);
+            else await api.post('/splices', payload);
+            ui.close();
+            toast.success(editing ? 'Sambungan diperbarui' : 'Sambungan ditambahkan', payload.name);
+            requestRefresh();
+          } catch (err) { errorToast(err); btn.disabled = false; }
+        });
+        root.querySelector('[data-splice-delete]')?.addEventListener('click', async () => {
+          const ok = await confirmDialog({
+            title: 'Hapus sambungan?',
+            message: `Sambungan ${splice.name} akan dihapus permanen.`,
+            confirmText: 'Hapus sambungan',
+            danger: true,
+          });
+          if (!ok) return;
+          try {
+            await api.del(`/splices/${splice.id}`);
+            ui.close();
+            toast.success('Sambungan dihapus', splice.name);
+            requestRefresh();
+          } catch (err) { errorToast(err); }
+        });
+      },
+    });
+  };
+
+  const beginSplicePlacement = () => {
+    if (!canEditNodes) return;
+    addMenu.classList.remove('open');
+    showDrawbar({
+      title: 'Tambah sambungan',
+      text: 'Klik pada peta untuk menentukan titik sambung.',
+      actions: [{ id: 'cancel', label: 'Batal', icon: 'x' }],
+    });
+    ctl.startPickMode('splice', {
+      onPick: (latlng) => { clearDrawbar(); openSpliceModal(null, latlng); },
+      onCancel: () => clearDrawbar(),
+    });
   };
 
   const beginMoveNode = () => {
@@ -262,6 +367,7 @@ export async function render(view) {
 
   ctl = createMap(canvas, {
     onNode: (node) => openNodeDrawer(node),
+    onSpliceEdit: (splice) => openSpliceModal(splice),
     onNodeMove: async (id, latlng) => {
       try {
         await api.put(`/nodes/${id}`, { projectId: state.projectId, lat: latlng.lat, lng: latlng.lng });
@@ -502,6 +608,13 @@ export async function render(view) {
         if (ctl.isDrawing()) { ctl.cancelDrawCable(); toolbar.querySelector('[data-action="draw"]')?.classList.remove('active'); clearDrawbar(); }
         else if (ctl.isPicking()) { ctl.cancelPick(); clearDrawbar(); }
         else beginCableDraw();
+      } else if (action === 'add-splice') {
+        if (ctl.isPicking() || ctl.isDrawing() || ctl.isMovingNode()) {
+          ctl.cancelPick();
+          ctl.cancelDrawCable({ silent: true });
+          ctl.cancelMoveNode({ silent: true });
+          clearDrawbar();
+        } else beginSplicePlacement();
       } else if (action === 'move-node') {
         if (ctl.isMovingNode()) {
           ctl.cancelMoveNode();
@@ -555,7 +668,8 @@ export async function render(view) {
         for (const type of Object.keys(NODE_TYPES)) state.filters.nodes[type] = true;
         for (const type of Object.keys(CABLE_TYPES)) state.filters.cables[type] = true;
         state.filters.faults = true;
-        view.querySelectorAll('[data-layer-node],[data-layer-cable],[data-layer-fault]').forEach((c) => { c.checked = true; });
+        state.filters.splices = true;
+        view.querySelectorAll('[data-layer-node],[data-layer-cable],[data-layer-fault],[data-layer-splice]').forEach((c) => { c.checked = true; });
         saveFilters();
         ctl.refreshFilters();
         toast.info('Semua layer aktif', 'Seluruh node, kabel, dan marker gangguan ditampilkan.');
@@ -625,6 +739,11 @@ export async function render(view) {
       saveFilters();
       ctl.refreshFilters();
     });
+  });
+  view.querySelector('[data-layer-splice]')?.addEventListener('change', (event) => {
+    state.filters.splices = event.target.checked;
+    saveFilters();
+    ctl.refreshFilters();
   });
   view.querySelector('[data-layer-fault]')?.addEventListener('change', (event) => {
     state.filters.faults = event.target.checked;

@@ -83,6 +83,8 @@ export function createMap(container, options = {}) {
     cables: L.layerGroup().addTo(map),
     nodes: L.layerGroup().addTo(map),
     faults: L.layerGroup().addTo(map),
+    alarms: L.layerGroup().addTo(map),
+    splices: L.layerGroup().addTo(map),
     user: L.layerGroup().addTo(map),
     draw: L.layerGroup().addTo(map),
     search: L.layerGroup().addTo(map),
@@ -100,6 +102,7 @@ export function createMap(container, options = {}) {
 
   function applyContainerClasses() {
     container.classList.toggle('no-labels', !state.filters.labels);
+    container.classList.toggle('no-splices', state.filters.splices === false);
     container.classList.toggle('no-anim', !state.filters.animate);
   }
 
@@ -341,10 +344,51 @@ export function createMap(container, options = {}) {
     }
   }
 
+  function splicePopup(splice) {
+    const cableName = (id) => state.cables.find((c) => c.id === id)?.name || '-';
+    const method = splice.method === 'mechanical' ? 'Mechanical' : 'Fusion';
+    const status = { planned: 'Rencana', done: 'Selesai', issue: 'Masalah' }[splice.status] || splice.status || '-';
+    return `<div class="map-popup">
+      <b>${esc(splice.name)}</b>
+      <div class="popup-kv"><span>Metode</span><b>${esc(method)}</b></div>
+      <div class="popup-kv"><span>Kabel A / core</span><b>${esc(cableName(splice.cableFromId))} · ${esc(splice.coreFrom || '-')}</b></div>
+      <div class="popup-kv"><span>Kabel B / core</span><b>${esc(cableName(splice.cableToId))} · ${esc(splice.coreTo || '-')}</b></div>
+      <div class="popup-kv"><span>Redaman</span><b>${Number(splice.lossDb || 0).toFixed(2)} dB</b></div>
+      <div class="popup-kv"><span>Status</span><b>${esc(status)}</b></div>
+      ${splice.notes ? `<div class="popup-kv"><span>Catatan</span><b>${esc(splice.notes)}</b></div>` : ''}
+      ${opts.onSpliceEdit ? `<button type="button" class="btn btn-xs btn-soft mt-2" data-open-splice="${esc(splice.id)}">${icon('edit')} Edit sambungan</button>` : ''}
+    </div>`;
+  }
+
+  function renderSplices() {
+    layers.splices.clearLayers();
+    if (state.filters.splices === false) return;
+    for (const splice of state.splices || []) {
+      if (!Number.isFinite(Number(splice.lat)) || !Number.isFinite(Number(splice.lng))) continue;
+      const html = `<div class="splice-marker"><span class="sm-ico">${icon('link')}</span><span class="sm-label">${esc(splice.name)}</span></div>`;
+      const marker = L.marker([Number(splice.lat), Number(splice.lng)], {
+        icon: L.divIcon({ className: 'splice-icon-wrap', html, iconSize: [0, 0], iconAnchor: [0, 0] }),
+        zIndexOffset: 750,
+        pane: 'markerPane',
+      });
+      marker.bindPopup(splicePopup(splice), { closeButton: true, offset: [0, -12], maxWidth: 300 });
+      marker.on('popupopen', (event) => {
+        bindPopupAction(event.popup.getElement(), '[data-open-splice]', () => {
+          const target = (state.splices || []).find((s) => s.id === splice.id);
+          if (!target) return;
+          marker.closePopup();
+          opts.onSpliceEdit?.(target);
+        });
+      });
+      marker.addTo(layers.splices);
+    }
+  }
+
   function renderAll() {
     applyContainerClasses();
     renderCables();
     renderFaults();
+    renderSplices();
     renderNodes();
   }
 
@@ -357,6 +401,9 @@ export function createMap(container, options = {}) {
     for (const cable of state.cables) {
       if (state.filters.cables[cable.type] === false) continue;
       for (const p of cable.path || []) points.push(p);
+    }
+    if (state.filters.splices !== false) {
+      for (const s of state.splices || []) points.push([Number(s.lat), Number(s.lng)]);
     }
     if (!points.length) {
       map.setView(state.project?.center || state.settings.map.center || [-8.2, 114.02], state.project?.zoom || 10, { animate });

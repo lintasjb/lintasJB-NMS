@@ -392,6 +392,7 @@ export function buildSeed() {
       usr_operator: { ...operatorTrial.license, key: operatorTrial.key },
       usr_demo: { ...demoTrial.license, key: demoTrial.key },
     },
+    splices: [],
     users: [
       {
         id: 'usr_admin',

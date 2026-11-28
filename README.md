@@ -58,6 +58,9 @@ dan MikroTik RouterOS dalam satu dashboard realtime.
   titik putus, plus daftar node terdampak dan pembuatan gangguan + alarm otomatis.
 - **Kalkulator redaman**: halaman sidebar untuk menghitung total loss serat, splice, konektor,
   splitter, margin desain, daya terima, status kelayakan link, dan jarak maksimal (1310/1550 nm).
+- **Sambungan serat (splicing)** di Live Map: titik sambung dengan metode fusion/mechanical,
+  pasangan kabel & nomor core, redaman, status, dan catatan. Bisa difilter per layer; penulisan
+  hanya untuk superadmin/admin/operator.
 - **Alarm center** realtime (SSE) dengan acknowledge, resolve, dan riwayat.
 - **Simulasi gangguan** kabel/perangkat untuk validasi alarm dan animasi.
 - **Monitor otomatis** berkala untuk GenieACS, OLT, dan router; deteksi ONT offline dan pembuatan
@@ -378,6 +381,8 @@ lintasjb-nms/
 | `POST` | `/api/auth/register` | Registrasi + project baru |
 | `GET` | `/api/bootstrap?projectId=` | Semua data awal aplikasi |
 | `GET/POST` | `/api/nodes`, `/api/cables` | CRUD aset |
+| `GET/POST` | `/api/splices` | Daftar & tambah sambungan serat |
+| `PUT/DELETE` | `/api/splices/:id` | Ubah/hapus sambungan |
 | `POST` | `/api/nodes/bulk-delete` | Hapus banyak node sekaligus (`ids`: array) |
 | `POST` | `/api/faults/locate` | POSGIS: jarak/rasio → fault |
 | `POST` | `/api/faults/:id/repair` | Pulihkan gangguan |

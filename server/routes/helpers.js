@@ -76,6 +76,7 @@ export function requireEntityProjectAccess(type) {
         alarm: db.alarms,
         olt: db.olts,
         router: db.routers,
+        splice: db.splices,
       };
       const entity = (collections[type] || []).find((x) => x.id === req.params.id);
       if (entity) {

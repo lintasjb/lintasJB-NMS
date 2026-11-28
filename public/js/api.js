@@ -195,7 +195,7 @@ export function connectEvents(handlers = {}) {
   source = new EventSource(`${API}/events?token=${encodeURIComponent(token)}`);
   const types = [
     'hello', 'fault', 'fault:resolved', 'alarm', 'alarm:changed', 'alarms:ack-all',
-    'node:changed', 'cable:changed', 'nodes', 'projects', 'settings', 'license',
+    'node:changed', 'cable:changed', 'nodes', 'projects', 'splices', 'settings', 'license',
     'import', 'router:changed',
   ];
   source.addEventListener('open', () => {

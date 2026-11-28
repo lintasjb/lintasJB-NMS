@@ -1546,3 +1546,15 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
 .att-row small { font-size: 9.5px; color: var(--dim); }
 .att-row--total b { color: var(--accent); }
 @media (max-width: 900px) { .att-layout { grid-template-columns: 1fr; } }
+
+/* Sambungan serat di Live Map */
+.splice-icon-wrap { z-index: 750; }
+.splice-marker { display: flex; flex-direction: column; align-items: center; gap: 2px; transform: translate(-50%, -50%); }
+.sm-ico { width: 26px; height: 26px; border-radius: 9px; display: grid; place-items: center; background: rgba(167,139,250,.18); border: 1px solid #a78bfa; color: #c4b5fd; box-shadow: 0 0 0 3px rgba(167,139,250,.08); }
+.sm-ico .icon { width: 14px; height: 14px; }
+.sm-label { font-size: 9px; color: var(--text-2); background: rgba(9,17,29,.82); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.map-popup { min-width: 220px; font-size: 11px; }
+.map-popup > b { display: block; font-size: 12px; margin-bottom: 6px; }
+.popup-kv { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px solid rgba(29,44,67,.45); }
+.popup-kv span { color: var(--dim); font-size: 9.5px; white-space: nowrap; }
+.popup-kv b { font-size: 10.5px; text-align: right; font-weight: 600; }

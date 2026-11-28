@@ -24,6 +24,7 @@ const ARRAY_KEYS = [
   'routers',
   'orders',
   'activity',
+  'splices',
 ];
 
 function mergeDefaults(target, defaults) {

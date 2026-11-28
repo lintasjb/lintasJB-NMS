@@ -378,6 +378,7 @@ router.get(
       cables,
       faults,
       alarms,
+      splices: (db.splices || []).filter((s) => !projectId || s.projectId === projectId),
       stats: projectId ? nodeStats(db, projectId) : {},
       activity,
       integrations: {

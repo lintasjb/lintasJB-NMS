@@ -375,8 +375,9 @@ function connectEvents() {
         scheduleRefresh(200);
         return;
       }
-      if (type === 'node:changed' || type === 'cable:changed' || type === 'nodes') {
-        scheduleRefresh(220);
+      if (type === 'node:changed' || type === 'cable:changed' || type === 'nodes' || type === 'splices') {
+        if (currentView() === 'map') document.dispatchEvent(new CustomEvent('nms:map-refresh'));
+        else scheduleRefresh(220);
         return;
       }
       if (type === 'projects') {
